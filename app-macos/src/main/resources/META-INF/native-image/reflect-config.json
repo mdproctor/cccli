@@ -1,0 +1,13 @@
+[
+  {
+    "name": "dev.mproctor.cccli.bridge.gen.WindowClosedCallback$Function",
+    "allDeclaredMethods": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "dev.mproctor.cccli.bridge.gen.MyMacUI_h",
+    "allDeclaredMethods": true,
+    "allPublicMethods": true,
+    "allDeclaredFields": true
+  }
+]
