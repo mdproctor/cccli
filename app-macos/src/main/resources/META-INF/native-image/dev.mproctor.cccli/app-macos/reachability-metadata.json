@@ -1,7 +1,27 @@
 {
   "foreign": {
-    "upcalls": [
-      { "descriptor": "()void" }
+    "directUpcalls": [
+      {
+        "class": "dev.mproctor.cccli.bridge.Callbacks",
+        "method": "onWindowClosed",
+        "returnType": "void",
+        "parameterTypes": []
+      }
+    ],
+    "downcalls": [
+      {
+        "returnType": "jlong",
+        "parameterTypes": [
+          "void*",
+          "jint",
+          "jint",
+          "void*"
+        ]
+      },
+      {
+        "returnType": "void",
+        "parameterTypes": []
+      }
     ]
   }
 }
