@@ -153,3 +153,29 @@ Added `myui_start()` to the Objective-C bridge. It:
 ### Why not fix it on the Java side?
 
 The Java side has no access to GCD. The ObjC bridge is the right place to own threading concerns — Java callers should not need to know AppKit's threading rules.
+
+---
+
+## ADR-007: myui_start thread detection — CFRunLoopRun vs semaphore
+
+**Date:** 2026-04-04
+**Status:** Decided (forced by native image behaviour)
+
+### Context
+
+In JVM mode, Quarkus calls `@QuarkusMain.run()` on a **worker thread** — the OS main thread is free to drain the GCD main queue. The `dispatch_async` + semaphore approach worked.
+
+In GraalVM native image, Quarkus calls `run()` **synchronously on the OS main thread**. Calling `dispatch_async(main_queue)` then `dispatch_semaphore_wait` on the main thread is a deadlock: the semaphore blocks the main thread, so the queued block never executes.
+
+### Decision
+
+`myui_start()` checks `[NSThread isMainThread]` at runtime and branches:
+
+- **Main thread (native image):** queue AppKit setup via `dispatch_async`, then call `CFRunLoopRun()` to drain the queue. `CFRunLoopStop` is called after `[NSApp run]` returns.
+- **Worker thread (JVM mode):** original `dispatch_async` + `dispatch_semaphore_wait` path.
+
+### Validated
+
+Both modes confirmed working:
+- JVM: window + upcall ✅
+- Native image: window + upcall ✅, startup in **0.017s**
