@@ -21,7 +21,9 @@
 
 - (void)windowWillClose:(NSNotification *)notification {
     if (self.onClosed) {
-        self.onClosed();
+        WindowClosedCallback cb = self.onClosed;
+        self.onClosed = NULL; /* clear before invoking — prevents double-fire on [NSApp terminate:] */
+        cb();
     }
 }
 
