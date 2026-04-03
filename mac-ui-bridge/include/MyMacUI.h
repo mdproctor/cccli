@@ -39,6 +39,17 @@ void myui_run(void);
  */
 void myui_terminate(void);
 
+/**
+ * Convenience entry point: dispatches AppKit initialisation, window creation,
+ * and the event loop to the main thread via GCD.
+ * Blocks the calling thread until the application terminates.
+ * Safe to call from any thread (including Quarkus worker threads).
+ */
+intptr_t myui_start(const char* title,
+                    int width,
+                    int height,
+                    WindowClosedCallback onClosed);
+
 #ifdef __cplusplus
 }
 #endif

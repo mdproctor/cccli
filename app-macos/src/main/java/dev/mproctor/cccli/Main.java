@@ -28,19 +28,12 @@ public class Main implements QuarkusApplication {
 
     @Override
     public int run(String... args) {
-        Log.info("Initialising AppKit...");
-        bridge.initApplication();
-
-        Log.info("Creating main window...");
-        bridge.createWindow("Claude Desktop CLI", 900, 600, () -> {
+        Log.info("Starting Claude Desktop CLI...");
+        bridge.start("Claude Desktop CLI", 900, 600, () -> {
             Log.info("Window closed via upcall — terminating");
             bridge.terminate();
         });
-
-        Log.info("Starting AppKit event loop (blocks main thread)...");
-        bridge.run();
-
-        Log.info("AppKit event loop ended");
+        Log.info("Application terminated");
         return 0;
     }
 }

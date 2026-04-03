@@ -61,6 +61,25 @@ public class MacUIBridge {
     }
 
     /**
+     * Convenience entry point. Dispatches AppKit init, window creation, and
+     * the event loop to the main thread via GCD. Blocks until the app terminates.
+     * Safe to call from any thread (including Quarkus worker threads).
+     *
+     * @param title    window title
+     * @param width    initial width in points
+     * @param height   initial height in points
+     * @param onClosed called when the user closes the window
+     * @return opaque window handle
+     */
+    public long start(String title, int width, int height, Runnable onClosed) {
+        try (Arena temp = Arena.ofConfined()) {
+            MemorySegment titleSeg = temp.allocateFrom(title);
+            MemorySegment callback = Callbacks.createWindowClosedCallback(arena, onClosed);
+            return MyMacUI_h.myui_start(titleSeg, width, height, callback);
+        }
+    }
+
+    /**
      * Start the AppKit event loop. Blocks until terminate() is called.
      * Must be called on the main thread.
      */

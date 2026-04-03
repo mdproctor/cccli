@@ -1000,6 +1000,67 @@ public class MyMacUI_h {
            throw new AssertionError("should not reach here", ex$);
         }
     }
+
+    private static class myui_start {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            MyMacUI_h.C_LONG,
+            MyMacUI_h.C_POINTER,
+            MyMacUI_h.C_INT,
+            MyMacUI_h.C_INT,
+            MyMacUI_h.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = MyMacUI_h.findOrThrow("myui_start");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * intptr_t myui_start(const char *title, int width, int height, WindowClosedCallback onClosed)
+     * }
+     */
+    public static FunctionDescriptor myui_start$descriptor() {
+        return myui_start.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * intptr_t myui_start(const char *title, int width, int height, WindowClosedCallback onClosed)
+     * }
+     */
+    public static MethodHandle myui_start$handle() {
+        return myui_start.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * intptr_t myui_start(const char *title, int width, int height, WindowClosedCallback onClosed)
+     * }
+     */
+    public static MemorySegment myui_start$address() {
+        return myui_start.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * intptr_t myui_start(const char *title, int width, int height, WindowClosedCallback onClosed)
+     * }
+     */
+    public static long myui_start(MemorySegment title, int width, int height, MemorySegment onClosed) {
+        var mh$ = myui_start.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("myui_start", title, width, height, onClosed);
+            }
+            return (long)mh$.invokeExact(title, width, height, onClosed);
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
     /**
      * {@snippet lang=c :
      * #define __DARWIN_SUF_EXTSN "$DARWIN_EXTSN"
