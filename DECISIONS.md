@@ -128,3 +128,28 @@ The native bridge dylib must be callable from Java via Panama FFM. Both Objectiv
 **Status:** Accepted for Phase 1
 
 `CCCAppDelegate` stores `onClosed` as a single property. If `myui_create_window()` is called more than once, the second call overwrites the first window's callback. Acceptable for Phase 1 (single window). Fix in a later phase by storing callbacks per-window handle (e.g., an NSDictionary keyed by NSWindow pointer).
+
+---
+
+## ADR-006: Main Thread Dispatch — myui_start() via GCD
+
+**Date:** 2026-04-03
+**Status:** Decided (forced by runtime failure)
+
+### Context
+
+`@QuarkusMain.run()` is called on a Quarkus worker thread, not the OS main thread. AppKit requires all UI operations — including NSWindow creation — on the main thread. First run crashed with:
+`NSWindow should only be instantiated on the main thread!`
+
+### Decision
+
+Added `myui_start()` to the Objective-C bridge. It:
+1. Copies the title string to the heap (caller's stack may be freed before the block runs)
+2. Dispatches init + window creation + `[NSApp run]` to the main thread via `dispatch_async(dispatch_get_main_queue(), ...)`
+3. Blocks the calling (Quarkus) thread on a `dispatch_semaphore_t` until `[NSApp run]` returns
+
+`Main.java` now calls `bridge.start()` (single call) instead of the previous three-call sequence (`initApplication` + `createWindow` + `run`).
+
+### Why not fix it on the Java side?
+
+The Java side has no access to GCD. The ObjC bridge is the right place to own threading concerns — Java callers should not need to know AppKit's threading rules.
