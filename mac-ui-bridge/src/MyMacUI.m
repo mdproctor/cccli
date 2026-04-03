@@ -84,20 +84,47 @@ intptr_t myui_start(const char *title,
                     WindowClosedCallback onClosed) {
 
     __block intptr_t windowHandle = 0;
-    dispatch_semaphore_t done = dispatch_semaphore_create(0);
-
-    /* Copy title to heap — the C string may be freed by the caller
-       before the block executes on the main thread. */
     char *titleCopy = title ? strdup(title) : strdup("");
 
-    dispatch_async(dispatch_get_main_queue(), ^{
-        myui_init_application();
-        windowHandle = myui_create_window(titleCopy, width, height, onClosed);
-        free(titleCopy);
-        [NSApp run];
-        dispatch_semaphore_signal(done);
-    });
+    if ([NSThread isMainThread]) {
+        /*
+         * Called from the OS main thread — GraalVM native image, where Quarkus
+         * calls QuarkusApplication.run() synchronously on the main thread.
+         *
+         * We cannot dispatch_async + semaphore_wait here: the semaphore would
+         * block the main thread, preventing GCD from ever draining the main queue.
+         *
+         * Instead: queue the AppKit setup on the main queue, then start CFRunLoop.
+         * CFRunLoop drains the main queue, running the block. [NSApp run] takes
+         * over as the event loop. When [NSApp terminate] fires, [NSApp run] returns
+         * and we stop the outer CFRunLoop.
+         */
+        dispatch_async(dispatch_get_main_queue(), ^{
+            myui_init_application();
+            windowHandle = myui_create_window(titleCopy, width, height, onClosed);
+            free(titleCopy);
+            [NSApp run]; /* blocks until terminate — AppKit event loop */
+            CFRunLoopStop(CFRunLoopGetCurrent());
+        });
+        CFRunLoopRun(); /* processes main queue; returns after CFRunLoopStop */
+    } else {
+        /*
+         * Called from a non-main thread — JVM mode, where Quarkus uses a worker
+         * thread for QuarkusApplication.run(). The OS main thread is free to
+         * drain the GCD main queue while this worker thread waits on the semaphore.
+         */
+        dispatch_semaphore_t done = dispatch_semaphore_create(0);
 
-    dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            myui_init_application();
+            windowHandle = myui_create_window(titleCopy, width, height, onClosed);
+            free(titleCopy);
+            [NSApp run];
+            dispatch_semaphore_signal(done);
+        });
+
+        dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+    }
+
     return windowHandle;
 }
