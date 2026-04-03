@@ -25,7 +25,7 @@ public class MacUIBridge {
     private static final String DYLIB_PATH_DEFAULT = "../mac-ui-bridge/build/libMyMacUI.dylib";
 
     // Arena lives for the application lifetime — keeps upcall stubs alive
-    private final Arena arena = Arena.ofAuto();
+    private final Arena arena = Arena.ofShared();
 
     @PostConstruct
     void loadDylib() {
