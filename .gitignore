@@ -1,0 +1,4 @@
+mac-ui-bridge/build/
+target/
+*.class
+.DS_Store
