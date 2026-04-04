@@ -19,16 +19,36 @@
     return YES;
 }
 
+/* ── Window focus diagnostics ────────────────────────────────────────────── */
+
+- (void)windowDidBecomeKey:(NSNotification *)notification {
+    NSLog(@"[DEBUG] window became KEY — keyboard events active");
+}
+
+- (void)windowDidResignKey:(NSNotification *)notification {
+    NSLog(@"[DEBUG] window lost KEY status");
+}
+
+- (void)windowDidBecomeMain:(NSNotification *)notification {
+    NSLog(@"[DEBUG] window became MAIN (frontmost)");
+}
+
 - (void)windowWillClose:(NSNotification *)notification {
     if (self.onClosed) {
         WindowClosedCallback cb = self.onClosed;
-        self.onClosed = NULL; /* clear before invoking — prevents double-fire */
+        self.onClosed = NULL;
         cb();
     }
 }
 
-/* NSTextViewDelegate — intercept Enter key in the input pane */
+/* ── NSTextViewDelegate ───────────────────────────────────────────────────── */
+
+- (void)textViewDidChangeSelection:(NSNotification *)notification {
+    NSLog(@"[DEBUG] NSTextView selection changed — text view has focus/click");
+}
+
 - (BOOL)textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector {
+    NSLog(@"[DEBUG] NSTextView command: %@", NSStringFromSelector(commandSelector));
     if (commandSelector == @selector(insertNewline:)) {
         NSString *raw = textView.string;
         NSString *text = [raw stringByTrimmingCharactersInSet:
@@ -37,9 +57,13 @@
             self.onTextSubmitted(text.UTF8String);
         }
         [textView setString:@""];
-        return YES; /* handled — do not insert a newline */
+        return YES;
     }
     return NO;
+}
+
+- (void)textDidChange:(NSNotification *)notification {
+    NSLog(@"[DEBUG] NSTextView text changed (keystroke received)");
 }
 
 @end
@@ -122,7 +146,10 @@ static void setupSplitPane(NSWindow *window,
     NSWindow   *winRef   = window;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(200 * NSEC_PER_MSEC)),
                    dispatch_get_main_queue(), ^{
-        [winRef makeFirstResponder:inputRef];
+        BOOL ok = [winRef makeFirstResponder:inputRef];
+        NSLog(@"[DEBUG] makeFirstResponder:NSTextView result=%@  isKeyWindow=%@",
+              ok ? @"YES" : @"NO",
+              winRef.isKeyWindow ? @"YES" : @"NO");
     });
 }
 
