@@ -159,14 +159,22 @@ void myui_run(void) { [NSApp run]; }
 void myui_terminate(void) { [NSApp terminate:nil]; }
 
 void myui_append_output(const char *text) {
+    NSLog(@"[APPEND] myui_append_output entry  text=%s  theOutputView=%@  isMainThread=%d",
+          text ? text : "(null)", theOutputView, (int)[NSThread isMainThread]);
     if (!text) return;
     char *copy = strdup(text);
     dispatch_async(dispatch_get_main_queue(), ^{
+        NSLog(@"[APPEND] dispatch block running  theOutputView=%@", theOutputView);
         if (theOutputView) {
             NSString *appended = [NSString stringWithUTF8String:copy];
             NSString *current  = theOutputView.string ?: @"";
-            [theOutputView setString:[current stringByAppendingString:appended]];
+            NSString *updated  = [current stringByAppendingString:appended];
+            NSLog(@"[APPEND] calling setString: length=%lu", (unsigned long)updated.length);
+            [theOutputView setString:updated];
             [theOutputView scrollToEndOfDocument:nil];
+            NSLog(@"[APPEND] setString done  displayed=%@", theOutputView.string);
+        } else {
+            NSLog(@"[APPEND] theOutputView is nil — skipping");
         }
         free(copy);
     });

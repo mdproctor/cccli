@@ -31,7 +31,13 @@ public class Main implements QuarkusApplication {
                 },
                 text -> {
                     Log.infof("Input received: %s", text);
-                    bridge.appendOutput("> " + text + "\n");
+                    try {
+                        bridge.appendOutput("> " + text + "\n");
+                        Log.info("appendOutput returned normally");
+                    } catch (Exception e) {
+                        Log.errorf("appendOutput threw: %s: %s",
+                                   e.getClass().getSimpleName(), e.getMessage());
+                    }
                 });
 
         Log.info("Application terminated");
