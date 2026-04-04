@@ -111,16 +111,26 @@ static void setupUI(NSWindow *window,
     inputField.bezeled           = NO;
     inputField.editable          = YES;
     inputField.selectable        = YES;
-    inputField.placeholderString = @"Type a message and press Enter…";
-    inputField.target            = appDelegate;
-    inputField.action            = @selector(textFieldSubmit:);
+    /* Explicit placeholder colour — system default is near-invisible on dark bg */
+    inputField.placeholderAttributedString = [[NSAttributedString alloc]
+        initWithString:@"Type a message and press Enter…"
+            attributes:@{ NSForegroundColorAttributeName:
+                [NSColor colorWithRed:0.50 green:0.50 blue:0.50 alpha:1.0] }];
+    inputField.target = appDelegate;
+    inputField.action = @selector(textFieldSubmit:);
     [root addSubview:inputField];
 
-    /* initialFirstResponder is honoured by AppKit after the window becomes key
-     * and the run loop is live — avoids the timing issue where makeFirstResponder
-     * called before [NSApp run] installs the field editor but never starts the
-     * insertion-point blink timer (making the cursor invisible until Enter). */
-    window.initialFirstResponder = inputField;
+    /* makeKeyAndOrderFront: was already called before setupUI, so
+     * initialFirstResponder has no effect. Instead, defer focus until after
+     * [NSApp run] starts — only then does the field editor blink timer initialise. */
+    NSWindow *winRef   = window;
+    NSTextField *fRef  = inputField;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)),
+                   dispatch_get_main_queue(), ^{
+        [winRef makeFirstResponder:fRef];
+        NSTextView *editor = (NSTextView *)[winRef fieldEditor:YES forObject:fRef];
+        [editor updateInsertionPointStateAndRestartTimer:YES];
+    });
 
     appDelegate.onTextSubmitted = onTextSubmitted;
 }
