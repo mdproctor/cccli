@@ -32,6 +32,7 @@ public class PtyProcess {
     private String slavePath;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicBoolean closed = new AtomicBoolean(false);
     private Thread readerThread;
     private final Arena arena = Arena.ofShared();
 
@@ -206,6 +207,8 @@ public class PtyProcess {
             readerThread.interrupt();
             readerThread = null;
         }
-        arena.close();
+        if (closed.compareAndSet(false, true)) {
+            arena.close();
+        }
     }
 }
