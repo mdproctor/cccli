@@ -6,7 +6,8 @@
 
 /* ── AppDelegate ─────────────────────────────────────────────────────────── */
 
-@interface CCCAppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
+@interface CCCAppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate,
+                                      WKNavigationDelegate>
 @property (nonatomic, assign) WindowClosedCallback   onClosed;
 @property (nonatomic, assign) TextSubmittedCallback  onTextSubmitted;
 @end
@@ -23,6 +24,19 @@
 
 - (void)windowDidResignKey:(NSNotification *)notification {
     NSLog(@"[DEBUG] window lost KEY");
+}
+
+/* WKNavigationDelegate — fires when page finishes loading */
+- (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
+    NSLog(@"[DEBUG] WKWebView page load finished — running test JS");
+    [webView evaluateJavaScript:@"document.getElementById('out') ? 'element found' : 'element NOT found'"
+              completionHandler:^(id result, NSError *error) {
+        NSLog(@"[DEBUG] test JS result: %@  error: %@", result, error.localizedDescription);
+    }];
+}
+
+- (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
+    NSLog(@"[DEBUG] WKWebView navigation FAILED: %@", error.localizedDescription);
 }
 
 - (void)windowWillClose:(NSNotification *)notification {
@@ -101,8 +115,12 @@ static void setupSplitPane(NSWindow *window,
     [window makeFirstResponder:inputField];
 
     /* ── Load initial HTML ───────────────────────────────────────────────── */
+    NSLog(@"[DEBUG] webView frame: %@  hidden: %d  theWebView: %@",
+          NSStringFromRect(webView.frame), webView.hidden, theWebView);
     if (initialHtml) {
         NSString *htmlStr = [NSString stringWithUTF8String:initialHtml];
+        NSLog(@"[DEBUG] calling loadHTMLString, length=%lu", (unsigned long)htmlStr.length);
+        webView.navigationDelegate = appDelegate;
         [theWebView loadHTMLString:htmlStr baseURL:nil];
     }
 
@@ -158,13 +176,13 @@ void myui_load_html(const char *html) {
 
 void myui_evaluate_javascript(const char *script) {
     if (!script) return;
+    NSLog(@"[DEBUG] myui_evaluate_javascript called: %s  theWebView=%@", script, theWebView);
     char *copy = strdup(script);
     dispatch_async(dispatch_get_main_queue(), ^{
         NSString *scriptStr = [NSString stringWithUTF8String:copy];
         [theWebView evaluateJavaScript:scriptStr completionHandler:^(id result, NSError *error) {
-            if (error) {
-                NSLog(@"[DEBUG] evaluateJavaScript error: %@", error.localizedDescription);
-            }
+            if (error) NSLog(@"[DEBUG] JS error: %@", error.localizedDescription);
+            else NSLog(@"[DEBUG] JS result: %@", result);
         }];
         free(copy);
     });
