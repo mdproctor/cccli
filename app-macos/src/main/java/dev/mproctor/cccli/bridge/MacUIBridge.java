@@ -9,22 +9,21 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Path;
+import java.util.function.Consumer;
 
 /**
  * Thin Java facade over the Objective-C MyMacUI bridge.
  *
- * Loads libMyMacUI.dylib at startup via System.load(). The dylib path is
- * resolved from system property "cccli.dylib.path".
- *
- * All methods that call AppKit must be invoked on the main thread.
+ * Loads libMyMacUI.dylib at startup. All AppKit threading is handled
+ * internally by the dylib — callers need not worry about thread affinity.
  */
 @ApplicationScoped
 public class MacUIBridge {
 
-    private static final String DYLIB_PATH_PROP = "cccli.dylib.path";
-    private static final String DYLIB_PATH_DEFAULT = "../mac-ui-bridge/build/libMyMacUI.dylib";
+    private static final String DYLIB_PATH_PROP    = "cccli.dylib.path";
+    private static final String DYLIB_PATH_DEFAULT =
+            "../mac-ui-bridge/build/libMyMacUI.dylib";
 
-    // Arena lives for the application lifetime — keeps upcall stubs alive
     private final Arena arena = Arena.ofShared();
 
     @PostConstruct
@@ -37,59 +36,55 @@ public class MacUIBridge {
     }
 
     /**
-     * Initialize NSApplication. Call once before any other method, on the main thread.
-     */
-    public void initApplication() {
-        MyMacUI_h.myui_init_application();
-    }
-
-    /**
-     * Create and show a window. Returns an opaque window handle.
+     * Launch the application window with a split pane UI.
+     * Blocks until the user closes the window or terminate() is called.
      *
-     * @param title    window title bar text
-     * @param width    initial width in points
-     * @param height   initial height in points
-     * @param onClosed called when the user closes the window (on AppKit main thread)
-     * @return opaque window handle
+     * @param title           window title bar text
+     * @param width           initial window width in points
+     * @param height          initial window height in points
+     * @param initialHtml     HTML loaded into the terminal WKWebView at startup
+     * @param onClosed        called when the user closes the window
+     * @param onTextSubmitted called when the user presses Enter in the input pane
      */
-    public long createWindow(String title, int width, int height, Runnable onClosed) {
+    public long start(String title, int width, int height,
+                      String initialHtml,
+                      Runnable onClosed,
+                      Consumer<String> onTextSubmitted) {
         try (Arena temp = Arena.ofConfined()) {
-            MemorySegment titleSeg = temp.allocateFrom(title);
-            MemorySegment callback = Callbacks.createWindowClosedCallback(arena, onClosed);
-            return MyMacUI_h.myui_create_window(titleSeg, width, height, callback);
+            MemorySegment titleSeg    = temp.allocateFrom(title != null ? title : "");
+            MemorySegment htmlSeg     = temp.allocateFrom(initialHtml != null
+                                                          ? initialHtml : "");
+            MemorySegment closedCb    = Callbacks.createWindowClosedCallback(arena, onClosed);
+            MemorySegment submittedCb = Callbacks.createTextSubmittedCallback(arena,
+                                                                               onTextSubmitted);
+            return MyMacUI_h.myui_start(titleSeg, width, height,
+                                        htmlSeg, closedCb, submittedCb);
         }
     }
 
     /**
-     * Convenience entry point. Dispatches AppKit init, window creation, and
-     * the event loop to the main thread via GCD. Blocks until the app terminates.
-     * Safe to call from any thread (including Quarkus worker threads).
-     *
-     * @param title    window title
-     * @param width    initial width in points
-     * @param height   initial height in points
-     * @param onClosed called when the user closes the window
-     * @return opaque window handle
+     * Load HTML into the terminal pane. Dispatches to the main thread internally.
+     * Safe to call from any thread.
      */
-    public long start(String title, int width, int height, Runnable onClosed) {
+    public void loadHtml(String html) {
         try (Arena temp = Arena.ofConfined()) {
-            MemorySegment titleSeg = temp.allocateFrom(title);
-            MemorySegment callback = Callbacks.createWindowClosedCallback(arena, onClosed);
-            return MyMacUI_h.myui_start(titleSeg, width, height, callback);
+            MemorySegment htmlSeg = temp.allocateFrom(html != null ? html : "");
+            MyMacUI_h.myui_load_html(htmlSeg);
         }
     }
 
     /**
-     * Start the AppKit event loop. Blocks until terminate() is called.
-     * Must be called on the main thread.
+     * Evaluate JavaScript in the terminal pane. Dispatches to the main thread.
+     * Safe to call from any thread, including upcall handlers.
      */
-    public void run() {
-        MyMacUI_h.myui_run();
+    public void evaluateJavaScript(String script) {
+        try (Arena temp = Arena.ofConfined()) {
+            MemorySegment scriptSeg = temp.allocateFrom(script != null ? script : "");
+            MyMacUI_h.myui_evaluate_javascript(scriptSeg);
+        }
     }
 
-    /**
-     * Terminate the application cleanly.
-     */
+    /** Terminate the application cleanly. */
     public void terminate() {
         MyMacUI_h.myui_terminate();
     }
