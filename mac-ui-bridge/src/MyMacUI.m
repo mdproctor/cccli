@@ -1,13 +1,11 @@
 /* mac-ui-bridge/src/MyMacUI.m */
 #import <Cocoa/Cocoa.h>
-#import <WebKit/WebKit.h>
 #include <string.h>
 #include "MyMacUI.h"
 
 /* ── AppDelegate ─────────────────────────────────────────────────────────── */
 
-@interface CCCAppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate,
-                                      WKNavigationDelegate>
+@interface CCCAppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 @property (nonatomic, assign) WindowClosedCallback   onClosed;
 @property (nonatomic, assign) TextSubmittedCallback  onTextSubmitted;
 @end
@@ -16,27 +14,6 @@
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)app {
     return YES;
-}
-
-- (void)windowDidBecomeKey:(NSNotification *)notification {
-    NSLog(@"[DEBUG] window became KEY");
-}
-
-- (void)windowDidResignKey:(NSNotification *)notification {
-    NSLog(@"[DEBUG] window lost KEY");
-}
-
-/* WKNavigationDelegate — fires when page finishes loading */
-- (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
-    NSLog(@"[DEBUG] WKWebView page load finished — running test JS");
-    [webView evaluateJavaScript:@"document.getElementById('out') ? 'element found' : 'element NOT found'"
-              completionHandler:^(id result, NSError *error) {
-        NSLog(@"[DEBUG] test JS result: %@  error: %@", result, error.localizedDescription);
-    }];
-}
-
-- (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    NSLog(@"[DEBUG] WKWebView navigation FAILED: %@", error.localizedDescription);
 }
 
 - (void)windowWillClose:(NSNotification *)notification {
@@ -51,7 +28,6 @@
 - (void)textFieldSubmit:(NSTextField *)sender {
     NSString *text = [sender.stringValue
                       stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
-    NSLog(@"[DEBUG] NSTextField submitted: '%@'", text);
     if (text.length > 0 && self.onTextSubmitted) {
         self.onTextSubmitted(text.UTF8String);
     }
@@ -62,36 +38,56 @@
 
 /* ── Module-level state ───────────────────────────────────────────────────── */
 
-static CCCAppDelegate *appDelegate = nil;
-static WKWebView      *theWebView  = nil;
+static CCCAppDelegate *appDelegate    = nil;
+static NSTextView     *theOutputView  = nil;
 
 /* ── Internal helpers ─────────────────────────────────────────────────────── */
 
-static void setupSplitPane(NSWindow *window,
-                            const char *initialHtml,
-                            TextSubmittedCallback onTextSubmitted) {
-    /* KEY LESSON: replacing window.contentView breaks keyboard event routing.
-     * The minimal test proved that adding to the EXISTING contentView works.
-     * Solution: keep the default contentView, add all views to it. */
+static void setupUI(NSWindow *window,
+                    const char *initialText,
+                    TextSubmittedCallback onTextSubmitted) {
+    /* KEY: add views to the EXISTING contentView — never replace it.
+     * Replacing contentView breaks keyboard event routing.             */
 
-    NSView  *root    = window.contentView;
-    CGFloat  w       = root.bounds.size.width;
-    CGFloat  h       = root.bounds.size.height;
-    CGFloat  inputH  = 36.0;
-    CGFloat  webH    = h - inputH - 1;
+    NSView  *root   = window.contentView;
+    CGFloat  w      = root.bounds.size.width;
+    CGFloat  h      = root.bounds.size.height;
+    CGFloat  inputH = 36.0;
+    CGFloat  outH   = h - inputH - 1;
 
     root.wantsLayer = YES;
     root.layer.backgroundColor =
         [NSColor colorWithRed:0.12 green:0.12 blue:0.12 alpha:1.0].CGColor;
 
-    /* ── Terminal pane (top): WKWebView ──────────────────────────────────── */
-    WKWebViewConfiguration *wkConfig = [[WKWebViewConfiguration alloc] init];
-    WKWebView *webView = [[WKWebView alloc]
-        initWithFrame:NSMakeRect(0, inputH + 1, w, webH)
-        configuration:wkConfig];
-    webView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    theWebView = webView;
-    [root addSubview:webView];
+    /* ── Output pane (top): NSScrollView + NSTextView ────────────────────── */
+    NSScrollView *outputScroll = [[NSScrollView alloc]
+        initWithFrame:NSMakeRect(0, inputH + 1, w, outH)];
+    outputScroll.autoresizingMask    = NSViewWidthSizable | NSViewHeightSizable;
+    outputScroll.hasVerticalScroller = YES;
+    outputScroll.drawsBackground     = YES;
+    outputScroll.backgroundColor     = [NSColor colorWithRed:0.12 green:0.12
+                                                        blue:0.12 alpha:1.0];
+
+    NSTextView *outputText = [[NSTextView alloc] initWithFrame:outputScroll.bounds];
+    outputText.autoresizingMask               = NSViewWidthSizable | NSViewHeightSizable;
+    outputText.editable                       = NO;
+    outputText.selectable                     = YES;
+    outputText.richText                       = NO;
+    outputText.font                           = [NSFont monospacedSystemFontOfSize:13
+                                                                            weight:NSFontWeightRegular];
+    outputText.textColor                      = [NSColor colorWithRed:0.84 green:0.84
+                                                                 blue:0.84 alpha:1.0];
+    outputText.backgroundColor                = [NSColor colorWithRed:0.12 green:0.12
+                                                                 blue:0.12 alpha:1.0];
+    outputText.automaticSpellingCorrectionEnabled = NO;
+    theOutputView = outputText;
+    outputScroll.documentView = outputText;
+    [root addSubview:outputScroll];
+
+    if (initialText) {
+        NSString *s = [NSString stringWithUTF8String:initialText];
+        [outputText setString:s];
+    }
 
     /* ── Input pane (bottom): NSTextField ───────────────────────────────── */
     NSTextField *inputField = [[NSTextField alloc]
@@ -113,16 +109,6 @@ static void setupSplitPane(NSWindow *window,
     [root addSubview:inputField];
 
     [window makeFirstResponder:inputField];
-
-    /* ── Load initial HTML ───────────────────────────────────────────────── */
-    NSLog(@"[DEBUG] webView frame: %@  hidden: %d  theWebView: %@",
-          NSStringFromRect(webView.frame), webView.hidden, theWebView);
-    if (initialHtml) {
-        NSString *htmlStr = [NSString stringWithUTF8String:initialHtml];
-        NSLog(@"[DEBUG] calling loadHTMLString, length=%lu", (unsigned long)htmlStr.length);
-        webView.navigationDelegate = appDelegate;
-        [theWebView loadHTMLString:htmlStr baseURL:nil];
-    }
 
     appDelegate.onTextSubmitted = onTextSubmitted;
 }
@@ -164,29 +150,38 @@ void myui_run(void) { [NSApp run]; }
 
 void myui_terminate(void) { [NSApp terminate:nil]; }
 
-void myui_load_html(const char *html) {
-    if (!html) return;
-    char *copy = strdup(html);
+void myui_append_output(const char *text) {
+    if (!text) return;
+    char *copy = strdup(text);
     dispatch_async(dispatch_get_main_queue(), ^{
-        NSString *htmlStr = [NSString stringWithUTF8String:copy];
-        [theWebView loadHTMLString:htmlStr baseURL:nil];
+        if (theOutputView) {
+            NSString *str = [NSString stringWithUTF8String:copy];
+            NSTextStorage *storage = theOutputView.textStorage;
+            NSAttributedString *appended = [[NSAttributedString alloc]
+                initWithString:str
+                    attributes:@{
+                        NSFontAttributeName: [NSFont monospacedSystemFontOfSize:13
+                                                                         weight:NSFontWeightRegular],
+                        NSForegroundColorAttributeName: [NSColor colorWithRed:0.84
+                                                                        green:0.84
+                                                                         blue:0.84
+                                                                        alpha:1.0]
+                    }];
+            [storage beginEditing];
+            [storage appendAttributedString:appended];
+            [storage endEditing];
+            /* scroll to bottom */
+            [theOutputView scrollToEndOfDocument:nil];
+        }
         free(copy);
     });
 }
 
-void myui_evaluate_javascript(const char *script) {
-    if (!script) return;
-    NSLog(@"[DEBUG] myui_evaluate_javascript called: %s  theWebView=%@", script, theWebView);
-    char *copy = strdup(script);
-    dispatch_async(dispatch_get_main_queue(), ^{
-        NSString *scriptStr = [NSString stringWithUTF8String:copy];
-        [theWebView evaluateJavaScript:scriptStr completionHandler:^(id result, NSError *error) {
-            if (error) NSLog(@"[DEBUG] JS error: %@", error.localizedDescription);
-            else NSLog(@"[DEBUG] JS result: %@", result);
-        }];
-        free(copy);
-    });
-}
+/* myui_load_html and myui_evaluate_javascript are retained in the ABI for
+ * future WKWebView integration (Plan 3+, inside a proper .app bundle).
+ * They are no-ops in this NSTextView-based development implementation.    */
+void myui_load_html(const char *html) { (void)html; }
+void myui_evaluate_javascript(const char *script) { (void)script; }
 
 intptr_t myui_start(const char *title,
                     int width,
@@ -205,7 +200,7 @@ intptr_t myui_start(const char *title,
             windowHandle = myui_create_window(titleCopy, width, height, onClosed);
             free(titleCopy);
             NSWindow *window = (__bridge NSWindow *)(void *)windowHandle;
-            setupSplitPane(window, htmlCopy, onTextSubmitted);
+            setupUI(window, htmlCopy, onTextSubmitted);
             free(htmlCopy);
             [NSApp run];
             CFRunLoopStop(CFRunLoopGetCurrent());
@@ -218,7 +213,7 @@ intptr_t myui_start(const char *title,
             windowHandle = myui_create_window(titleCopy, width, height, onClosed);
             free(titleCopy);
             NSWindow *window = (__bridge NSWindow *)(void *)windowHandle;
-            setupSplitPane(window, htmlCopy, onTextSubmitted);
+            setupUI(window, htmlCopy, onTextSubmitted);
             free(htmlCopy);
             [NSApp run];
             dispatch_semaphore_signal(done);

@@ -50,15 +50,16 @@ intptr_t myui_start(const char* title,
                     TextSubmittedCallback onTextSubmitted);
 
 /**
- * Load HTML into the terminal WKWebView. Dispatches to the main thread.
- * Safe to call from any thread after myui_start() has set up the window.
+ * Append plain text to the output pane. Thread-safe.
+ * Development: appends to NSTextView.
+ * Production (.app bundle): will route through xterm.js.
  */
+void myui_append_output(const char* text);
+
+/** Retained for ABI compatibility — no-op in current implementation. */
 void myui_load_html(const char* html);
 
-/**
- * Evaluate a JavaScript string in the terminal WKWebView. Dispatches to
- * the main thread. Safe to call from any thread, including upcall handlers.
- */
+/** Retained for ABI compatibility — no-op in current implementation. */
 void myui_evaluate_javascript(const char* script);
 
 #ifdef __cplusplus

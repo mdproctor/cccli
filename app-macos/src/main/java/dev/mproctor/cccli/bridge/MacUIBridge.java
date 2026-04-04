@@ -74,9 +74,17 @@ public class MacUIBridge {
     }
 
     /**
-     * Evaluate JavaScript in the terminal pane. Dispatches to the main thread.
-     * Safe to call from any thread, including upcall handlers.
+     * Append plain text to the output pane. Thread-safe.
+     * Development: writes to NSTextView. Production: routes through xterm.js.
      */
+    public void appendOutput(String text) {
+        try (Arena temp = Arena.ofConfined()) {
+            MemorySegment textSeg = temp.allocateFrom(text != null ? text : "");
+            MyMacUI_h.myui_append_output(textSeg);
+        }
+    }
+
+    /** No-op in current implementation — retained for future WKWebView use. */
     public void evaluateJavaScript(String script) {
         try (Arena temp = Arena.ofConfined()) {
             MemorySegment scriptSeg = temp.allocateFrom(script != null ? script : "");

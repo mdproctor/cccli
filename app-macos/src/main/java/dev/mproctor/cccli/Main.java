@@ -19,34 +19,9 @@ public class Main implements QuarkusApplication {
 
     @Override
     public int run(String... args) {
-        String initialHtml = """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                <meta charset="UTF-8">
-                <style>
-                  * { box-sizing: border-box; margin: 0; padding: 0; }
-                  body {
-                    background: #1e1e1e;
-                    color: #d4d4d4;
-                    font-family: 'SF Mono', Menlo, 'Courier New', monospace;
-                    font-size: 13px;
-                    padding: 8px;
-                    white-space: pre-wrap;
-                    word-break: break-all;
-                  }
-                </style>
-                </head>
-                <body>
-                <div id="out">Claude Desktop CLI — ready&#10;</div>
-                <script>
-                function write(text) {
-                  document.getElementById('out').textContent += text;
-                }
-                </script>
-                </body>
-                </html>
-                """;
+        /* In development (JVM mode), this string is displayed as initial plain text
+         * in the NSTextView output pane. In production, it will be HTML for xterm.js. */
+        String initialHtml = "Claude Desktop CLI — ready\n";
 
         Log.info("Starting Claude Desktop CLI...");
         bridge.start("Claude Desktop CLI", 900, 600, initialHtml,
@@ -56,11 +31,7 @@ public class Main implements QuarkusApplication {
                 },
                 text -> {
                     Log.infof("Input received: %s", text);
-                    String escaped = text
-                            .replace("\\", "\\\\")
-                            .replace("'", "\\'")
-                            .replace("\n", "\\n");
-                    bridge.evaluateJavaScript("write('> " + escaped + "\\n')");
+                    bridge.appendOutput("> " + text + "\n");
                 });
 
         Log.info("Application terminated");

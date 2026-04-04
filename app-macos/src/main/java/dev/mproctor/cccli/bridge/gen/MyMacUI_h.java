@@ -1064,6 +1064,63 @@ public class MyMacUI_h {
         }
     }
 
+    private static class myui_append_output {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
+            MyMacUI_h.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = MyMacUI_h.findOrThrow("myui_append_output");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * void myui_append_output(const char *text)
+     * }
+     */
+    public static FunctionDescriptor myui_append_output$descriptor() {
+        return myui_append_output.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * void myui_append_output(const char *text)
+     * }
+     */
+    public static MethodHandle myui_append_output$handle() {
+        return myui_append_output.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * void myui_append_output(const char *text)
+     * }
+     */
+    public static MemorySegment myui_append_output$address() {
+        return myui_append_output.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * void myui_append_output(const char *text)
+     * }
+     */
+    public static void myui_append_output(MemorySegment text) {
+        var mh$ = myui_append_output.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("myui_append_output", text);
+            }
+            mh$.invokeExact(text);
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     private static class myui_load_html {
         public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
             MyMacUI_h.C_POINTER
