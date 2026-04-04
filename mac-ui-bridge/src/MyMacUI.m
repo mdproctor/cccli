@@ -116,7 +116,11 @@ static void setupUI(NSWindow *window,
     inputField.action            = @selector(textFieldSubmit:);
     [root addSubview:inputField];
 
-    [window makeFirstResponder:inputField];
+    /* initialFirstResponder is honoured by AppKit after the window becomes key
+     * and the run loop is live — avoids the timing issue where makeFirstResponder
+     * called before [NSApp run] installs the field editor but never starts the
+     * insertion-point blink timer (making the cursor invisible until Enter). */
+    window.initialFirstResponder = inputField;
 
     appDelegate.onTextSubmitted = onTextSubmitted;
 }
