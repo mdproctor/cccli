@@ -73,4 +73,28 @@ class PtyProcessTest {
         String result = received.get(2, TimeUnit.SECONDS);
         assertTrue(result.contains("ping"), "output should contain 'ping', got: " + result);
     }
+
+    @Test
+    void resizeDoesNotThrow() {
+        pty.open();
+        pty.spawn(new String[]{"/bin/cat"});
+        // resize before startReader — should not throw
+        assertDoesNotThrow(() -> pty.resize(24, 80));
+        assertDoesNotThrow(() -> pty.resize(50, 200));
+    }
+
+    @Test
+    void closeTerminatesSubprocess() throws Exception {
+        pty.open();
+        pty.spawn(new String[]{"/bin/cat"});
+        int spawnedPid = pty.getPid();
+        assertTrue(spawnedPid > 0);
+
+        pty.close();  // sends SIGTERM and waitpid
+
+        // After close(), all fds are -1
+        assertEquals(-1, pty.getMasterFd(), "masterFd should be -1 after close");
+        assertEquals(-1, pty.getSlaveFd(),  "slaveFd should be -1 after close");
+        assertEquals(-1, pty.getPid(),      "pid should be -1 after close");
+    }
 }
