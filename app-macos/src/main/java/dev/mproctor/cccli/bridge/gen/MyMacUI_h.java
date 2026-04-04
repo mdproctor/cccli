@@ -1007,6 +1007,8 @@ public class MyMacUI_h {
             MyMacUI_h.C_POINTER,
             MyMacUI_h.C_INT,
             MyMacUI_h.C_INT,
+            MyMacUI_h.C_POINTER,
+            MyMacUI_h.C_POINTER,
             MyMacUI_h.C_POINTER
         );
 
@@ -1018,7 +1020,7 @@ public class MyMacUI_h {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * intptr_t myui_start(const char *title, int width, int height, WindowClosedCallback onClosed)
+     * intptr_t myui_start(const char *title, int width, int height, const char *initialHtml, WindowClosedCallback onClosed, TextSubmittedCallback onTextSubmitted)
      * }
      */
     public static FunctionDescriptor myui_start$descriptor() {
@@ -1028,7 +1030,7 @@ public class MyMacUI_h {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * intptr_t myui_start(const char *title, int width, int height, WindowClosedCallback onClosed)
+     * intptr_t myui_start(const char *title, int width, int height, const char *initialHtml, WindowClosedCallback onClosed, TextSubmittedCallback onTextSubmitted)
      * }
      */
     public static MethodHandle myui_start$handle() {
@@ -1038,7 +1040,7 @@ public class MyMacUI_h {
     /**
      * Address for:
      * {@snippet lang=c :
-     * intptr_t myui_start(const char *title, int width, int height, WindowClosedCallback onClosed)
+     * intptr_t myui_start(const char *title, int width, int height, const char *initialHtml, WindowClosedCallback onClosed, TextSubmittedCallback onTextSubmitted)
      * }
      */
     public static MemorySegment myui_start$address() {
@@ -1047,16 +1049,130 @@ public class MyMacUI_h {
 
     /**
      * {@snippet lang=c :
-     * intptr_t myui_start(const char *title, int width, int height, WindowClosedCallback onClosed)
+     * intptr_t myui_start(const char *title, int width, int height, const char *initialHtml, WindowClosedCallback onClosed, TextSubmittedCallback onTextSubmitted)
      * }
      */
-    public static long myui_start(MemorySegment title, int width, int height, MemorySegment onClosed) {
+    public static long myui_start(MemorySegment title, int width, int height, MemorySegment initialHtml, MemorySegment onClosed, MemorySegment onTextSubmitted) {
         var mh$ = myui_start.HANDLE;
         try {
             if (TRACE_DOWNCALLS) {
-                traceDowncall("myui_start", title, width, height, onClosed);
+                traceDowncall("myui_start", title, width, height, initialHtml, onClosed, onTextSubmitted);
             }
-            return (long)mh$.invokeExact(title, width, height, onClosed);
+            return (long)mh$.invokeExact(title, width, height, initialHtml, onClosed, onTextSubmitted);
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class myui_load_html {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
+            MyMacUI_h.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = MyMacUI_h.findOrThrow("myui_load_html");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * void myui_load_html(const char *html)
+     * }
+     */
+    public static FunctionDescriptor myui_load_html$descriptor() {
+        return myui_load_html.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * void myui_load_html(const char *html)
+     * }
+     */
+    public static MethodHandle myui_load_html$handle() {
+        return myui_load_html.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * void myui_load_html(const char *html)
+     * }
+     */
+    public static MemorySegment myui_load_html$address() {
+        return myui_load_html.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * void myui_load_html(const char *html)
+     * }
+     */
+    public static void myui_load_html(MemorySegment html) {
+        var mh$ = myui_load_html.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("myui_load_html", html);
+            }
+            mh$.invokeExact(html);
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class myui_evaluate_javascript {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
+            MyMacUI_h.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = MyMacUI_h.findOrThrow("myui_evaluate_javascript");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * void myui_evaluate_javascript(const char *script)
+     * }
+     */
+    public static FunctionDescriptor myui_evaluate_javascript$descriptor() {
+        return myui_evaluate_javascript.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * void myui_evaluate_javascript(const char *script)
+     * }
+     */
+    public static MethodHandle myui_evaluate_javascript$handle() {
+        return myui_evaluate_javascript.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * void myui_evaluate_javascript(const char *script)
+     * }
+     */
+    public static MemorySegment myui_evaluate_javascript$address() {
+        return myui_evaluate_javascript.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * void myui_evaluate_javascript(const char *script)
+     * }
+     */
+    public static void myui_evaluate_javascript(MemorySegment script) {
+        var mh$ = myui_evaluate_javascript.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("myui_evaluate_javascript", script);
+            }
+            mh$.invokeExact(script);
         } catch (Throwable ex$) {
            throw new AssertionError("should not reach here", ex$);
         }
