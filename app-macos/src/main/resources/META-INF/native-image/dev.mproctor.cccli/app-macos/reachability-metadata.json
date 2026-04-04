@@ -6,17 +6,22 @@
         "method": "onWindowClosed",
         "returnType": "void",
         "parameterTypes": []
+      },
+      {
+        "class": "dev.mproctor.cccli.bridge.Callbacks",
+        "method": "onTextSubmitted",
+        "returnType": "void",
+        "parameterTypes": ["void*"]
       }
     ],
     "downcalls": [
       {
         "returnType": "jlong",
-        "parameterTypes": [
-          "void*",
-          "jint",
-          "jint",
-          "void*"
-        ]
+        "parameterTypes": ["void*", "jint", "jint", "void*", "void*", "void*"]
+      },
+      {
+        "returnType": "void",
+        "parameterTypes": ["void*"]
       },
       {
         "returnType": "void",

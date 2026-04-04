@@ -2,7 +2,8 @@
   {
     "name": "dev.mproctor.cccli.bridge.Callbacks",
     "methods": [
-      { "name": "onWindowClosed", "parameterTypes": [] }
+      { "name": "onWindowClosed",  "parameterTypes": [] },
+      { "name": "onTextSubmitted", "parameterTypes": ["java.lang.foreign.MemorySegment"] }
     ]
   }
 ]
