@@ -32,9 +32,7 @@ public class PtyProcess {
     private String slavePath;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
-    private final AtomicBoolean closed = new AtomicBoolean(false);
     private Thread readerThread;
-    private final Arena arena = Arena.ofShared();
 
     // ── Open ────────────────────────────────────────────────────────────────
 
@@ -163,8 +161,12 @@ public class PtyProcess {
         try (Arena temp = Arena.ofConfined()) {
             MemorySegment buf = temp.allocate(bytes.length);
             MemorySegment.copy(bytes, 0, buf, ValueLayout.JAVA_BYTE, 0, bytes.length);
-            long written = PosixLibrary.write(masterFd, buf, bytes.length);
-            if (written < 0) throw new RuntimeException("write to PTY failed: " + written);
+            long total = 0;
+            while (total < bytes.length) {
+                long n = PosixLibrary.write(masterFd, buf.asSlice(total), bytes.length - total);
+                if (n < 0) throw new RuntimeException("write to PTY failed: " + n);
+                total += n;
+            }
         }
     }
 
@@ -191,7 +193,8 @@ public class PtyProcess {
 
     /**
      * Terminates the subprocess (SIGTERM) and closes all fds.
-     * Safe to call multiple times. Waits up to ~2s for the process to exit.
+     * Blocks until the subprocess exits — no timeout.
+     * Not safe for concurrent callers; single-threaded close only.
      */
     public void close() {
         running.set(false);
@@ -206,9 +209,6 @@ public class PtyProcess {
         if (readerThread != null) {
             readerThread.interrupt();
             readerThread = null;
-        }
-        if (closed.compareAndSet(false, true)) {
-            arena.close();
         }
     }
 }
