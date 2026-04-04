@@ -56,20 +56,34 @@ static WKWebView      *theWebView  = nil;
 static void setupSplitPane(NSWindow *window,
                             const char *initialHtml,
                             TextSubmittedCallback onTextSubmitted) {
-    CGFloat w = window.contentView.bounds.size.width;
-    CGFloat h = window.contentView.bounds.size.height;
+    /* NSSplitView blocks keyboard events to subviews when set as contentView.
+     * Solution: plain NSView container with WKWebView + NSTextField as
+     * direct subviews. No NSSplitView — no event blocking. */
+
+    CGFloat w   = window.contentView.bounds.size.width;
+    CGFloat h   = window.contentView.bounds.size.height;
+    CGFloat inputH = 36.0;
+    CGFloat webH   = h - inputH - 1; /* 1pt separator */
+
+    /* ── Container ───────────────────────────────────────────────────────── */
+    NSView *container = [[NSView alloc] initWithFrame:window.contentView.bounds];
+    container.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    container.wantsLayer       = YES;
+    container.layer.backgroundColor =
+        [NSColor colorWithRed:0.12 green:0.12 blue:0.12 alpha:1.0].CGColor;
 
     /* ── Terminal pane (top): WKWebView ──────────────────────────────────── */
     WKWebViewConfiguration *wkConfig = [[WKWebViewConfiguration alloc] init];
     WKWebView *webView = [[WKWebView alloc]
-        initWithFrame:NSMakeRect(0, 0, w, h * 0.84)
+        initWithFrame:NSMakeRect(0, inputH + 1, w, webH)
         configuration:wkConfig];
     webView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     theWebView = webView;
+    [container addSubview:webView];
 
     /* ── Input pane (bottom): NSTextField ───────────────────────────────── */
     NSTextField *inputField = [[NSTextField alloc]
-        initWithFrame:NSMakeRect(0, 0, w, 36)];
+        initWithFrame:NSMakeRect(0, 0, w, inputH)];
     inputField.autoresizingMask  = NSViewWidthSizable | NSViewMaxYMargin;
     inputField.font              = [NSFont monospacedSystemFontOfSize:13
                                                                weight:NSFontWeightRegular];
@@ -84,22 +98,10 @@ static void setupSplitPane(NSWindow *window,
     inputField.placeholderString = @"Type a message and press Enter…";
     inputField.target            = appDelegate;
     inputField.action            = @selector(textFieldSubmit:);
+    [container addSubview:inputField];
 
-    /* ── Split view ──────────────────────────────────────────────────────── */
-    NSSplitView *split = [[NSSplitView alloc]
-        initWithFrame:window.contentView.bounds];
-    split.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    split.vertical         = NO;
-    split.dividerStyle     = NSSplitViewDividerStyleThin;
+    window.contentView = container;
 
-    [split addSubview:webView];     /* top */
-    [split addSubview:inputField];  /* bottom */
-    window.contentView = split;
-
-    [split setPosition:h * 0.84 ofDividerAtIndex:0];
-
-    /* Replacing contentView breaks the key view loop — rebuild it so the
-     * NSSplitView's subviews participate in keyboard event routing. */
     [window recalculateKeyViewLoop];
     BOOL ok = [window makeFirstResponder:inputField];
     NSLog(@"[DEBUG] makeFirstResponder result=%@  isKeyWindow=%@",
