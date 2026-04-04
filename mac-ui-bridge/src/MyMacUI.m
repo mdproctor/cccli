@@ -128,8 +128,11 @@ static void setupUI(NSWindow *window,
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)),
                    dispatch_get_main_queue(), ^{
         [winRef makeFirstResponder:fRef];
-        NSTextView *editor = (NSTextView *)[winRef fieldEditor:YES forObject:fRef];
-        [editor updateInsertionPointStateAndRestartTimer:YES];
+        /* AppKit bug: empty NSTextField never starts the insertion-point blink
+         * timer on programmatic focus. A no-op string assignment tickles the
+         * field editor into starting the timer. */
+        [fRef setStringValue:@" "];
+        [fRef setStringValue:@""];
     });
 
     appDelegate.onTextSubmitted = onTextSubmitted;
