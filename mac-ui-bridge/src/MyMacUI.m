@@ -8,12 +8,27 @@
 @interface CCCAppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 @property (nonatomic, assign) WindowClosedCallback   onClosed;
 @property (nonatomic, assign) TextSubmittedCallback  onTextSubmitted;
+@property (nonatomic, weak)   NSTextField           *inputField;
 @end
 
 @implementation CCCAppDelegate
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)app {
     return YES;
+}
+
+- (void)windowDidBecomeKey:(NSNotification *)notification {
+    /* Apply the empty-field cursor-blink fix exactly once, at the moment the
+     * window becomes key and the run loop is live. GCD dispatch blocks cannot
+     * fire while [NSApp run] is itself executing inside a dispatch_async block,
+     * so AppKit delegate methods are the only safe hook for post-run-loop work. */
+    if (self.inputField) {
+        NSWindow *w = notification.object;
+        [w makeFirstResponder:self.inputField];
+        [self.inputField setStringValue:@" "];
+        [self.inputField setStringValue:@""];
+        self.inputField = nil; /* clear so this only runs once */
+    }
 }
 
 - (void)windowWillClose:(NSNotification *)notification {
@@ -120,21 +135,9 @@ static void setupUI(NSWindow *window,
     inputField.action = @selector(textFieldSubmit:);
     [root addSubview:inputField];
 
-    /* makeKeyAndOrderFront: was already called before setupUI, so
-     * initialFirstResponder has no effect. Instead, defer focus until after
-     * [NSApp run] starts — only then does the field editor blink timer initialise. */
-    NSWindow *winRef   = window;
-    NSTextField *fRef  = inputField;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)),
-                   dispatch_get_main_queue(), ^{
-        [winRef makeFirstResponder:fRef];
-        /* AppKit bug: empty NSTextField never starts the insertion-point blink
-         * timer on programmatic focus. A no-op string assignment tickles the
-         * field editor into starting the timer. */
-        [fRef setStringValue:@" "];
-        [fRef setStringValue:@""];
-    });
-
+    /* Store reference so windowDidBecomeKey: can apply the cursor-blink fix
+     * at the correct moment (inside the run loop, not before it starts). */
+    appDelegate.inputField = inputField;
     appDelegate.onTextSubmitted = onTextSubmitted;
 }
 
