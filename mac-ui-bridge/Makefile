@@ -15,6 +15,7 @@ $(BUILD_DIR)/$(DYLIB): $(SRC) $(INCLUDE)/MyMacUI.h | $(BUILD_DIR)
 	clang -dynamiclib \
 	      -fobjc-arc \
 	      -framework Cocoa \
+	      -framework WebKit \
 	      -I$(INCLUDE) \
 	      -install_name @rpath/$(DYLIB) \
 	      -target arm64-apple-macos13.0 \
