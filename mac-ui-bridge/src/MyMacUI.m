@@ -158,26 +158,24 @@ void myui_run(void) { [NSApp run]; }
 
 void myui_terminate(void) { [NSApp terminate:nil]; }
 
+static void doAppend(NSString *str) {
+    if (!theOutputView) return;
+    NSString *updated = [(theOutputView.string ?: @"") stringByAppendingString:str];
+    [theOutputView setString:updated];
+    [theOutputView scrollToEndOfDocument:nil];
+}
+
 void myui_append_output(const char *text) {
-    NSLog(@"[APPEND] myui_append_output entry  text=%s  theOutputView=%@  isMainThread=%d",
-          text ? text : "(null)", theOutputView, (int)[NSThread isMainThread]);
     if (!text) return;
-    char *copy = strdup(text);
-    dispatch_async(dispatch_get_main_queue(), ^{
-        NSLog(@"[APPEND] dispatch block running  theOutputView=%@", theOutputView);
-        if (theOutputView) {
-            NSString *appended = [NSString stringWithUTF8String:copy];
-            NSString *current  = theOutputView.string ?: @"";
-            NSString *updated  = [current stringByAppendingString:appended];
-            NSLog(@"[APPEND] calling setString: length=%lu", (unsigned long)updated.length);
-            [theOutputView setString:updated];
-            [theOutputView scrollToEndOfDocument:nil];
-            NSLog(@"[APPEND] setString done  displayed=%@", theOutputView.string);
-        } else {
-            NSLog(@"[APPEND] theOutputView is nil — skipping");
-        }
-        free(copy);
-    });
+    NSString *str = [NSString stringWithUTF8String:text];
+    if ([NSThread isMainThread]) {
+        /* Called from AppKit event handler (upcall via textFieldSubmit:).
+         * dispatch_async blocks are not drained while inside a Panama upcall
+         * on the main thread — update the text view synchronously instead. */
+        doAppend(str);
+    } else {
+        dispatch_async(dispatch_get_main_queue(), ^{ doAppend(str); });
+    }
 }
 
 /* myui_load_html and myui_evaluate_javascript are retained in the ABI for
