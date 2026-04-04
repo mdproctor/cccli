@@ -68,17 +68,25 @@ static void setupUI(NSWindow *window,
     outputScroll.backgroundColor     = [NSColor colorWithRed:0.12 green:0.12
                                                         blue:0.12 alpha:1.0];
 
-    NSTextView *outputText = [[NSTextView alloc] initWithFrame:outputScroll.bounds];
-    outputText.autoresizingMask               = NSViewWidthSizable | NSViewHeightSizable;
-    outputText.editable                       = NO;
-    outputText.selectable                     = YES;
-    outputText.richText                       = NO;
-    outputText.font                           = [NSFont monospacedSystemFontOfSize:13
-                                                                            weight:NSFontWeightRegular];
-    outputText.textColor                      = [NSColor colorWithRed:0.84 green:0.84
-                                                                 blue:0.84 alpha:1.0];
-    outputText.backgroundColor                = [NSColor colorWithRed:0.12 green:0.12
-                                                                 blue:0.12 alpha:1.0];
+    NSTextView *outputText = [[NSTextView alloc]
+        initWithFrame:NSMakeRect(0, 0, outputScroll.contentSize.width,
+                                       outputScroll.contentSize.height)];
+    outputText.minSize            = NSMakeSize(0, outputScroll.contentSize.height);
+    outputText.maxSize            = NSMakeSize(FLT_MAX, FLT_MAX);
+    outputText.verticallyResizable   = YES;
+    outputText.horizontallyResizable = NO;
+    outputText.autoresizingMask   = NSViewWidthSizable;
+    outputText.textContainer.containerSize    = NSMakeSize(outputScroll.contentSize.width, FLT_MAX);
+    outputText.textContainer.widthTracksTextView = YES;
+    outputText.editable           = NO;
+    outputText.selectable         = YES;
+    outputText.richText           = NO;
+    outputText.font               = [NSFont monospacedSystemFontOfSize:13
+                                                                weight:NSFontWeightRegular];
+    outputText.textColor          = [NSColor colorWithRed:0.84 green:0.84
+                                                     blue:0.84 alpha:1.0];
+    outputText.backgroundColor    = [NSColor colorWithRed:0.12 green:0.12
+                                                     blue:0.12 alpha:1.0];
     outputText.automaticSpellingCorrectionEnabled = NO;
     theOutputView = outputText;
     outputScroll.documentView = outputText;
@@ -155,22 +163,9 @@ void myui_append_output(const char *text) {
     char *copy = strdup(text);
     dispatch_async(dispatch_get_main_queue(), ^{
         if (theOutputView) {
-            NSString *str = [NSString stringWithUTF8String:copy];
-            NSTextStorage *storage = theOutputView.textStorage;
-            NSAttributedString *appended = [[NSAttributedString alloc]
-                initWithString:str
-                    attributes:@{
-                        NSFontAttributeName: [NSFont monospacedSystemFontOfSize:13
-                                                                         weight:NSFontWeightRegular],
-                        NSForegroundColorAttributeName: [NSColor colorWithRed:0.84
-                                                                        green:0.84
-                                                                         blue:0.84
-                                                                        alpha:1.0]
-                    }];
-            [storage beginEditing];
-            [storage appendAttributedString:appended];
-            [storage endEditing];
-            /* scroll to bottom */
+            NSString *appended = [NSString stringWithUTF8String:copy];
+            NSString *current  = theOutputView.string ?: @"";
+            [theOutputView setString:[current stringByAppendingString:appended]];
             [theOutputView scrollToEndOfDocument:nil];
         }
         free(copy);
