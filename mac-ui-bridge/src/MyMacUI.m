@@ -114,8 +114,16 @@ static void setupSplitPane(NSWindow *window,
 
     appDelegate.onTextSubmitted = onTextSubmitted;
 
-    /* Give keyboard focus to the input pane on startup */
-    [window makeFirstResponder:inputText];
+    /* Give keyboard focus to the input pane once the run loop is running.
+     * Delay is necessary: WKWebView spawns a web content process that claims
+     * first-responder status during initialisation. The 200ms delay lets that
+     * settle before we reclaim focus for the NSTextView. */
+    NSTextView *inputRef = inputText;
+    NSWindow   *winRef   = window;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(200 * NSEC_PER_MSEC)),
+                   dispatch_get_main_queue(), ^{
+        [winRef makeFirstResponder:inputRef];
+    });
 }
 
 /* ── C ABI implementation ─────────────────────────────────────────────────── */
