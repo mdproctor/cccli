@@ -6,11 +6,9 @@
 
 /* ── AppDelegate ─────────────────────────────────────────────────────────── */
 
-@interface CCCAppDelegate : NSObject <NSApplicationDelegate,
-                                      NSWindowDelegate,
-                                      NSTextViewDelegate>
-@property (nonatomic, assign) WindowClosedCallback onClosed;
-@property (nonatomic, assign) TextSubmittedCallback onTextSubmitted;
+@interface CCCAppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
+@property (nonatomic, assign) WindowClosedCallback   onClosed;
+@property (nonatomic, assign) TextSubmittedCallback  onTextSubmitted;
 @end
 
 @implementation CCCAppDelegate
@@ -19,18 +17,12 @@
     return YES;
 }
 
-/* ── Window focus diagnostics ────────────────────────────────────────────── */
-
 - (void)windowDidBecomeKey:(NSNotification *)notification {
-    NSLog(@"[DEBUG] window became KEY — keyboard events active");
+    NSLog(@"[DEBUG] window became KEY");
 }
 
 - (void)windowDidResignKey:(NSNotification *)notification {
-    NSLog(@"[DEBUG] window lost KEY status");
-}
-
-- (void)windowDidBecomeMain:(NSNotification *)notification {
-    NSLog(@"[DEBUG] window became MAIN (frontmost)");
+    NSLog(@"[DEBUG] window lost KEY");
 }
 
 - (void)windowWillClose:(NSNotification *)notification {
@@ -41,29 +33,15 @@
     }
 }
 
-/* ── NSTextViewDelegate ───────────────────────────────────────────────────── */
-
-- (void)textViewDidChangeSelection:(NSNotification *)notification {
-    NSLog(@"[DEBUG] NSTextView selection changed — text view has focus/click");
-}
-
-- (BOOL)textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector {
-    NSLog(@"[DEBUG] NSTextView command: %@", NSStringFromSelector(commandSelector));
-    if (commandSelector == @selector(insertNewline:)) {
-        NSString *raw = textView.string;
-        NSString *text = [raw stringByTrimmingCharactersInSet:
-                          NSCharacterSet.whitespaceCharacterSet];
-        if (text.length > 0 && self.onTextSubmitted) {
-            self.onTextSubmitted(text.UTF8String);
-        }
-        [textView setString:@""];
-        return YES;
+/* NSTextField action — fired when user presses Enter */
+- (void)textFieldSubmit:(NSTextField *)sender {
+    NSString *text = [sender.stringValue
+                      stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
+    NSLog(@"[DEBUG] NSTextField submitted: '%@'", text);
+    if (text.length > 0 && self.onTextSubmitted) {
+        self.onTextSubmitted(text.UTF8String);
     }
-    return NO;
-}
-
-- (void)textDidChange:(NSNotification *)notification {
-    NSLog(@"[DEBUG] NSTextView text changed (keystroke received)");
+    sender.stringValue = @"";
 }
 
 @end
@@ -84,51 +62,42 @@ static void setupSplitPane(NSWindow *window,
     /* ── Terminal pane (top): WKWebView ──────────────────────────────────── */
     WKWebViewConfiguration *wkConfig = [[WKWebViewConfiguration alloc] init];
     WKWebView *webView = [[WKWebView alloc]
-        initWithFrame:NSMakeRect(0, 0, w, h * 0.72)
+        initWithFrame:NSMakeRect(0, 0, w, h * 0.84)
         configuration:wkConfig];
     webView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     theWebView = webView;
 
-    /* ── Input pane (bottom): NSScrollView + NSTextView ─────────────────── */
-    NSScrollView *inputScroll = [[NSScrollView alloc]
-        initWithFrame:NSMakeRect(0, 0, w, h * 0.28)];
-    inputScroll.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    inputScroll.hasVerticalScroller = YES;
-    inputScroll.hasHorizontalScroller = NO;
-    inputScroll.drawsBackground = YES;
-    inputScroll.backgroundColor = [NSColor colorWithRed:0.12 green:0.12
+    /* ── Input pane (bottom): NSTextField ───────────────────────────────── */
+    /* NSTextField is a native AppKit control with reliable focus handling.  */
+    NSTextField *inputField = [[NSTextField alloc]
+        initWithFrame:NSMakeRect(0, 0, w, 36)];
+    inputField.autoresizingMask = NSViewWidthSizable | NSViewMaxYMargin;
+    inputField.font             = [NSFont monospacedSystemFontOfSize:13
+                                                              weight:NSFontWeightRegular];
+    inputField.textColor        = [NSColor colorWithRed:0.84 green:0.84
+                                                   blue:0.84 alpha:1.0];
+    inputField.backgroundColor  = [NSColor colorWithRed:0.12 green:0.12
                                                    blue:0.12 alpha:1.0];
-
-    NSTextView *inputText = [[NSTextView alloc]
-        initWithFrame:inputScroll.bounds];
-    inputText.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    inputText.richText = NO;
-    inputText.font = [NSFont monospacedSystemFontOfSize:13
-                                                 weight:NSFontWeightRegular];
-    inputText.textColor = [NSColor colorWithRed:0.84 green:0.84
-                                           blue:0.84 alpha:1.0];
-    inputText.backgroundColor = [NSColor colorWithRed:0.12 green:0.12
-                                                 blue:0.12 alpha:1.0];
-    inputText.insertionPointColor = [NSColor colorWithRed:0.84 green:0.84
-                                                     blue:0.84 alpha:1.0];
-    inputText.automaticSpellingCorrectionEnabled = NO;
-    inputText.automaticQuoteSubstitutionEnabled = NO;
-    inputText.automaticDashSubstitutionEnabled = NO;
-    inputText.delegate = appDelegate;
-    inputScroll.documentView = inputText;
+    inputField.drawsBackground  = YES;
+    inputField.bezeled          = NO;
+    inputField.editable         = YES;
+    inputField.selectable       = YES;
+    inputField.placeholderString = @"Type a message and press Enter…";
+    inputField.target           = appDelegate;
+    inputField.action           = @selector(textFieldSubmit:);
 
     /* ── Split view ──────────────────────────────────────────────────────── */
     NSSplitView *split = [[NSSplitView alloc]
         initWithFrame:window.contentView.bounds];
     split.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    split.vertical = NO; /* horizontal divider — top/bottom split */
-    split.dividerStyle = NSSplitViewDividerStyleThin;
+    split.vertical         = NO;
+    split.dividerStyle     = NSSplitViewDividerStyleThin;
 
-    [split addSubview:webView];       /* top */
-    [split addSubview:inputScroll];   /* bottom */
+    [split addSubview:webView];     /* top */
+    [split addSubview:inputField];  /* bottom */
     window.contentView = split;
 
-    [split setPosition:h * 0.72 ofDividerAtIndex:0];
+    [split setPosition:h * 0.84 ofDividerAtIndex:0];
 
     /* ── Load initial HTML ───────────────────────────────────────────────── */
     if (initialHtml) {
@@ -138,16 +107,12 @@ static void setupSplitPane(NSWindow *window,
 
     appDelegate.onTextSubmitted = onTextSubmitted;
 
-    /* Give keyboard focus to the input pane once the run loop is running.
-     * Delay is necessary: WKWebView spawns a web content process that claims
-     * first-responder status during initialisation. The 200ms delay lets that
-     * settle before we reclaim focus for the NSTextView. */
-    NSTextView *inputRef = inputText;
-    NSWindow   *winRef   = window;
+    /* Give focus to the input field after the run loop settles */
+    NSWindow *winRef = window;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(200 * NSEC_PER_MSEC)),
                    dispatch_get_main_queue(), ^{
-        BOOL ok = [winRef makeFirstResponder:inputRef];
-        NSLog(@"[DEBUG] makeFirstResponder:NSTextView result=%@  isKeyWindow=%@",
+        BOOL ok = [winRef makeFirstResponder:inputField];
+        NSLog(@"[DEBUG] makeFirstResponder:NSTextField result=%@  isKeyWindow=%@",
               ok ? @"YES" : @"NO",
               winRef.isKeyWindow ? @"YES" : @"NO");
     });
