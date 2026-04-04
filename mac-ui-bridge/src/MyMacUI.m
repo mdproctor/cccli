@@ -161,7 +161,11 @@ void myui_evaluate_javascript(const char *script) {
     char *copy = strdup(script);
     dispatch_async(dispatch_get_main_queue(), ^{
         NSString *scriptStr = [NSString stringWithUTF8String:copy];
-        [theWebView evaluateJavaScript:scriptStr completionHandler:nil];
+        [theWebView evaluateJavaScript:scriptStr completionHandler:^(id result, NSError *error) {
+            if (error) {
+                NSLog(@"[DEBUG] evaluateJavaScript error: %@", error.localizedDescription);
+            }
+        }];
         free(copy);
     });
 }

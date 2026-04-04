@@ -37,12 +37,14 @@ public class Main implements QuarkusApplication {
                   }
                 </style>
                 </head>
-                <body id="out">Claude Desktop CLI — ready\n</body>
+                <body>
+                <div id="out">Claude Desktop CLI — ready&#10;</div>
                 <script>
                 function write(text) {
                   document.getElementById('out').textContent += text;
                 }
                 </script>
+                </body>
                 </html>
                 """;
 
