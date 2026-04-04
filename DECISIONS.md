@@ -179,3 +179,58 @@ In GraalVM native image, Quarkus calls `run()` **synchronously on the OS main th
 Both modes confirmed working:
 - JVM: window + upcall ✅
 - Native image: window + upcall ✅, startup in **0.017s**
+
+---
+
+## ADR-008: GCD main queue blocked by [NSApp run] inside dispatch_async
+
+**Date:** 2026-04-04
+**Status:** Confirmed (discovered during Plan 2)
+
+### Finding
+
+`dispatch_async(dispatch_get_main_queue(), block)` and `dispatch_after(...)` blocks **cannot execute** while `[NSApp run]` is itself running inside a `dispatch_async` block. GCD serializes the main queue — it will not dispatch new blocks onto it while a block is still executing (and `[NSApp run]` never returns until the app terminates, so from GCD's view the outer block is still running).
+
+AppKit events (user input, window actions) ARE processed normally because `[NSApp run]` pumps the CFRunLoop directly, bypassing GCD.
+
+### Consequences
+
+- `myui_append_output` must update NSTextView **synchronously** when called from the main thread (AppKit upcall context), not via `dispatch_async`.
+- Post-startup initialization that needs to run after the run loop starts must use **AppKit delegate methods** (`windowDidBecomeKey:`, `applicationDidFinishLaunching:`, etc.) — not `dispatch_async` or `dispatch_after`.
+- For background-thread callers, `dispatch_async(main_queue, ...)` works correctly.
+
+---
+
+## ADR-009: NSTextView in NSSplitView (as contentView) blocks keyboard events
+
+**Date:** 2026-04-04
+**Status:** Confirmed (Plan 2)
+
+Replacing `window.contentView` with an `NSSplitView` breaks keyboard event routing to all subviews. Clicks also fail to reach NSTextView/NSTextField inside the split view. The fix: **never replace contentView** — add all views directly to the existing `window.contentView` using `[contentView addSubview:]`.
+
+---
+
+## ADR-010: WKWebView subprocess fails in non-bundle JVM process
+
+**Date:** 2026-04-04
+**Status:** Confirmed (Plan 2)
+
+WKWebView spawns a separate `WebContent` subprocess. In a JVM process launched from terminal (without a proper `.app` bundle), the IPC between the host process and `WebContent` silently fails. `loadHTMLString:` and `evaluateJavaScript:` appear to succeed but no content renders and the `WKNavigationDelegate` never fires.
+
+**Decision:** Use NSTextView for the output pane in development (JVM) mode. WKWebView + xterm.js will be used in production inside a proper `.app` bundle (Plan 3+).
+
+---
+
+## ADR-011: NSTextField empty-field cursor blink bug (AppKit)
+
+**Date:** 2026-04-04
+**Status:** Confirmed (Plan 2)
+
+AppKit does not start the insertion-point blink timer for an empty NSTextField that gains first responder status programmatically. The cursor is invisible until text is typed and Enter is pressed (which transitions through a non-empty state). 
+
+**Fix:** In `windowDidBecomeKey:`, after `makeFirstResponder:`, perform a no-op string assignment:
+```objc
+[inputField setStringValue:@" "];
+[inputField setStringValue:@""];
+```
+This must be done inside an AppKit delegate method (see ADR-008 — GCD dispatch is not available in this setup).
