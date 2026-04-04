@@ -68,23 +68,22 @@ static void setupSplitPane(NSWindow *window,
     theWebView = webView;
 
     /* ── Input pane (bottom): NSTextField ───────────────────────────────── */
-    /* NSTextField is a native AppKit control with reliable focus handling.  */
     NSTextField *inputField = [[NSTextField alloc]
         initWithFrame:NSMakeRect(0, 0, w, 36)];
-    inputField.autoresizingMask = NSViewWidthSizable | NSViewMaxYMargin;
-    inputField.font             = [NSFont monospacedSystemFontOfSize:13
-                                                              weight:NSFontWeightRegular];
-    inputField.textColor        = [NSColor colorWithRed:0.84 green:0.84
-                                                   blue:0.84 alpha:1.0];
-    inputField.backgroundColor  = [NSColor colorWithRed:0.12 green:0.12
-                                                   blue:0.12 alpha:1.0];
-    inputField.drawsBackground  = YES;
-    inputField.bezeled          = NO;
-    inputField.editable         = YES;
-    inputField.selectable       = YES;
+    inputField.autoresizingMask  = NSViewWidthSizable | NSViewMaxYMargin;
+    inputField.font              = [NSFont monospacedSystemFontOfSize:13
+                                                               weight:NSFontWeightRegular];
+    inputField.textColor         = [NSColor colorWithRed:0.84 green:0.84
+                                                    blue:0.84 alpha:1.0];
+    inputField.backgroundColor   = [NSColor colorWithRed:0.12 green:0.12
+                                                    blue:0.12 alpha:1.0];
+    inputField.drawsBackground   = YES;
+    inputField.bezeled           = NO;
+    inputField.editable          = YES;
+    inputField.selectable        = YES;
     inputField.placeholderString = @"Type a message and press Enter…";
-    inputField.target           = appDelegate;
-    inputField.action           = @selector(textFieldSubmit:);
+    inputField.target            = appDelegate;
+    inputField.action            = @selector(textFieldSubmit:);
 
     /* ── Split view ──────────────────────────────────────────────────────── */
     NSSplitView *split = [[NSSplitView alloc]
@@ -99,6 +98,14 @@ static void setupSplitPane(NSWindow *window,
 
     [split setPosition:h * 0.84 ofDividerAtIndex:0];
 
+    /* Replacing contentView breaks the key view loop — rebuild it so the
+     * NSSplitView's subviews participate in keyboard event routing. */
+    [window recalculateKeyViewLoop];
+    BOOL ok = [window makeFirstResponder:inputField];
+    NSLog(@"[DEBUG] makeFirstResponder result=%@  isKeyWindow=%@",
+          ok ? @"YES" : @"NO",
+          window.isKeyWindow ? @"YES" : @"NO");
+
     /* ── Load initial HTML ───────────────────────────────────────────────── */
     if (initialHtml) {
         NSString *htmlStr = [NSString stringWithUTF8String:initialHtml];
@@ -106,16 +113,6 @@ static void setupSplitPane(NSWindow *window,
     }
 
     appDelegate.onTextSubmitted = onTextSubmitted;
-
-    /* Give focus to the input field after the run loop settles */
-    NSWindow *winRef = window;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(200 * NSEC_PER_MSEC)),
-                   dispatch_get_main_queue(), ^{
-        BOOL ok = [winRef makeFirstResponder:inputField];
-        NSLog(@"[DEBUG] makeFirstResponder:NSTextField result=%@  isKeyWindow=%@",
-              ok ? @"YES" : @"NO",
-              winRef.isKeyWindow ? @"YES" : @"NO");
-    });
 }
 
 /* ── C ABI implementation ─────────────────────────────────────────────────── */
