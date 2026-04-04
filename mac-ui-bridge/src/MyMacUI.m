@@ -56,20 +56,18 @@ static WKWebView      *theWebView  = nil;
 static void setupSplitPane(NSWindow *window,
                             const char *initialHtml,
                             TextSubmittedCallback onTextSubmitted) {
-    /* NSSplitView blocks keyboard events to subviews when set as contentView.
-     * Solution: plain NSView container with WKWebView + NSTextField as
-     * direct subviews. No NSSplitView — no event blocking. */
+    /* KEY LESSON: replacing window.contentView breaks keyboard event routing.
+     * The minimal test proved that adding to the EXISTING contentView works.
+     * Solution: keep the default contentView, add all views to it. */
 
-    CGFloat w   = window.contentView.bounds.size.width;
-    CGFloat h   = window.contentView.bounds.size.height;
-    CGFloat inputH = 36.0;
-    CGFloat webH   = h - inputH - 1; /* 1pt separator */
+    NSView  *root    = window.contentView;
+    CGFloat  w       = root.bounds.size.width;
+    CGFloat  h       = root.bounds.size.height;
+    CGFloat  inputH  = 36.0;
+    CGFloat  webH    = h - inputH - 1;
 
-    /* ── Container ───────────────────────────────────────────────────────── */
-    NSView *container = [[NSView alloc] initWithFrame:window.contentView.bounds];
-    container.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    container.wantsLayer       = YES;
-    container.layer.backgroundColor =
+    root.wantsLayer = YES;
+    root.layer.backgroundColor =
         [NSColor colorWithRed:0.12 green:0.12 blue:0.12 alpha:1.0].CGColor;
 
     /* ── Terminal pane (top): WKWebView ──────────────────────────────────── */
@@ -79,7 +77,7 @@ static void setupSplitPane(NSWindow *window,
         configuration:wkConfig];
     webView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     theWebView = webView;
-    [container addSubview:webView];
+    [root addSubview:webView];
 
     /* ── Input pane (bottom): NSTextField ───────────────────────────────── */
     NSTextField *inputField = [[NSTextField alloc]
@@ -98,15 +96,9 @@ static void setupSplitPane(NSWindow *window,
     inputField.placeholderString = @"Type a message and press Enter…";
     inputField.target            = appDelegate;
     inputField.action            = @selector(textFieldSubmit:);
-    [container addSubview:inputField];
+    [root addSubview:inputField];
 
-    window.contentView = container;
-
-    [window recalculateKeyViewLoop];
-    BOOL ok = [window makeFirstResponder:inputField];
-    NSLog(@"[DEBUG] makeFirstResponder result=%@  isKeyWindow=%@",
-          ok ? @"YES" : @"NO",
-          window.isKeyWindow ? @"YES" : @"NO");
+    [window makeFirstResponder:inputField];
 
     /* ── Load initial HTML ───────────────────────────────────────────────── */
     if (initialHtml) {
