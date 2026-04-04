@@ -113,6 +113,9 @@ static void setupSplitPane(NSWindow *window,
     }
 
     appDelegate.onTextSubmitted = onTextSubmitted;
+
+    /* Give keyboard focus to the input pane on startup */
+    [window makeFirstResponder:inputText];
 }
 
 /* ── C ABI implementation ─────────────────────────────────────────────────── */
