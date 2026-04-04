@@ -1,6 +1,7 @@
 # Claude Desktop CLI — Handoff Document
 
-> **For future Claude instances.** Read this before doing anything else. It captures the full journey, current state, known issues, pitfalls, and what comes next. This project has significant context that is not obvious from the code alone.
+> **For future Claude instances.** Also see the central knowledge garden at `~/claude/knowledge-garden/` for cross-project technical gotchas.
+> Read this before doing anything else. It captures the full journey, current state, known issues, pitfalls, and what comes next. This project has significant context that is not obvious from the code alone.
 
 ---
 
