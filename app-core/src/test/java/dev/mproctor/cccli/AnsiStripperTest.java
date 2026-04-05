@@ -58,4 +58,9 @@ class AnsiStripperTest {
         String input = "\u001B[1m\u001B[32m>\u001B[0m Hello there\r\n";
         assertEquals("> Hello there\n", AnsiStripper.strip(input));
     }
+
+    @Test
+    void handlesNull() {
+        assertEquals("", AnsiStripper.strip(null));
+    }
 }

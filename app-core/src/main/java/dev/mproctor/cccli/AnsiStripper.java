@@ -25,7 +25,7 @@ public final class AnsiStripper {
     private static final Pattern ANSI = Pattern.compile(
             "\u001B\\][^\u0007]*\u0007"    // OSC: ESC ] text BEL (must be first!)
             + "|\u001B\\[[0-9;:?]*[A-Za-z]"    // CSI: ESC [ params letter
-            + "|\u001B[^\\[\u001B\r\n]"       // Other: ESC + single char (not [, ESC, newlines)
+            + "|\u001B[A-Za-z0-9=>?]"          // Other: ESC + single VT100 char (DECKPAM, RI, DECSC, etc.)
             + "|\r(?!\n)"                     // Bare CR not followed by LF
     );
 
@@ -34,6 +34,7 @@ public final class AnsiStripper {
      * Returns the plain-text content suitable for NSTextView display.
      */
     public static String strip(String text) {
+        if (text == null) return "";
         // Normalise CRLF → LF first, then strip remaining control sequences
         return ANSI.matcher(text.replace("\r\n", "\n")).replaceAll("");
     }
