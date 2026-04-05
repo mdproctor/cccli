@@ -24,8 +24,6 @@ public class Main implements QuarkusApplication {
         Path claudePath = ClaudeLocator.locate();
         if (claudePath == null) {
             Log.error("claude binary not found in PATH");
-            /* Write error to output pane then exit — bridge isn't started yet,
-             * so we can't use appendOutput. Exit with a message to stderr.      */
             System.err.println("""
                     claude not found. Install it with:
                       npm install -g @anthropic-ai/claude-code
@@ -39,10 +37,16 @@ public class Main implements QuarkusApplication {
         pty.open();
         pty.spawn(new String[]{claudePath.toString()});
 
-        // Strip ANSI escape codes before display — NSTextView has no terminal
-        // emulation. Plan 5b switches to WKWebView + xterm.js which handles
-        // ANSI natively; AnsiStripper is removed at that point.
-        pty.startReader(text -> bridge.appendOutput(AnsiStripper.strip(text)));
+        // Detector: bridge.setPassiveMode() is called from the detector's
+        // scheduler thread — safe because myui_set_passive_mode() dispatches
+        // to the AppKit main thread via performSelectorOnMainThread:.
+        InteractionDetector detector = new InteractionDetector(
+                state -> bridge.setPassiveMode(state == ClaudeState.PASSIVE));
+
+        pty.startReader(text -> {
+            detector.onOutput();
+            bridge.appendOutput(AnsiStripper.strip(text));
+        });
 
         // Plan 5 wires resize to actual window dimensions.
         pty.resize(24, 120);
@@ -52,14 +56,25 @@ public class Main implements QuarkusApplication {
                 "Connecting to Claude...\n",
                 () -> {
                     Log.info("Window closed — terminating");
+                    detector.forceIdle();
+                    detector.close();
                     pty.close();
                     bridge.terminate();
                 },
                 text -> {
-                    Log.infof("Sending to claude: %s", text);
-                    pty.write(text + "\n");
+                    if (detector.getState() == ClaudeState.FREE_TEXT) {
+                        Log.infof("Sending to claude: %s", text);
+                        detector.onSubmit();
+                        pty.write(text + "\n");
+                    }
+                    // In PASSIVE: input field is disabled so this shouldn't fire;
+                    // the state check is belt-and-suspenders.
                 },
-                () -> {}); // TODO Task 4: replace with real stop handler
+                () -> {
+                    Log.info("Stop clicked — sending SIGINT");
+                    pty.sendSigInt();
+                    detector.forceIdle();
+                });
 
         Log.info("Application terminated");
         return 0;
