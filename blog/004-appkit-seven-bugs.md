@@ -24,12 +24,12 @@ Here's a quick map of the journey:
 
 The natural choice for a two-pane layout is `NSSplitView`. I created one, set it as `window.contentView`, added the output view and input field. The window appeared, the split looked right, and nothing responded to clicks or keypresses — no error, no warning, just silence.
 
-**What was tried (all failed):**
+**What we tried (all failed):**
 - `[window recalculateKeyViewLoop]` after replacement
 - Explicit `[window makeFirstResponder:subview]`
 - Different view hierarchies inside the split
 
-The fix came from stripping everything back to the minimum: one `NSTextField` added directly to `window.contentView` without replacing it. That worked immediately.
+We found the fix by stripping everything back to the minimum: one `NSTextField` added directly to `window.contentView` without replacing it. That worked immediately.
 
 ```
 BROKEN — replace contentView        WORKING — add to contentView
@@ -66,7 +66,7 @@ WebContent Process                  WebContent Process
 
 WKWebView spawns a separate `WebContent` process. In a proper `.app` bundle, macOS sets up the IPC correctly. In a JVM process launched from a terminal with no bundle, the IPC silently fails. Everything appears to succeed from the ObjC side — the effects just never arrive.
 
-**Fix for development:** Replace WKWebView with NSTextView. It's entirely in-process, works perfectly, and the API can be designed so the renderer is swappable. WKWebView returns in production, where the `.app` bundle makes the subprocess model work.
+**For development, we replaced WKWebView with NSTextView.** It's entirely in-process, works perfectly, and the API can be designed so the renderer is swappable. WKWebView returns in production, where the `.app` bundle makes the subprocess model work.
 
 ---
 
@@ -150,7 +150,7 @@ ObjC myui_append_output()     Panama downcall
                [theOutputView setString:...];        works immediately
 ```
 
-Java logged `"Input received: hello"`. The NSTextView didn't update. Bug 3 again — the ObjC function was dispatching to the main queue. Once I understood the dispatch block would never run, the fix was immediate: detect the thread and update synchronously.
+Java logged `"Input received: hello"`. The NSTextView didn't update. Bug 3 again — the ObjC function was dispatching to the main queue. Once we understood the dispatch block would never run, the fix was immediate: detect the thread and update synchronously.
 
 ```objc
 if ([NSThread isMainThread]) {
@@ -188,7 +188,7 @@ This is a documented AppKit bug. When an empty NSTextField gains first responder
 [inputField setStringValue:@""];
 ```
 
-But every attempt to schedule this via `dispatch_after` failed (Bug 3). The only place it works reliably is `windowDidBecomeKey:` — an AppKit delegate that fires inside the run loop at exactly the right moment.
+But every attempt we made to schedule this via `dispatch_after` failed (Bug 3). The only place it works reliably is `windowDidBecomeKey:` — an AppKit delegate that fires inside the run loop at exactly the right moment.
 
 ---
 
@@ -244,9 +244,9 @@ if ([NSThread isMainThread]) {
 
 Seven bugs. All silent except one. Most of them variants of the same threading problem — once Bug 3 was understood, it retrospectively explained three others.
 
-The pattern of using Claude to debug this: add the right NSLog in the right place, strip back to the minimum test case, verify one assumption at a time. Most bugs resolved in minutes once the diagnostic information was in hand. The GCD serialisation bug was the exception — it took a proper understanding of how `[NSApp run]` interacts with the GCD main queue before any fix made sense.
+The pattern we used: add the right NSLog in the right place, strip back to the minimum test case, verify one assumption at a time. Most bugs resolved in minutes once the diagnostic information was in hand. The GCD serialisation bug was the exception — it took a proper understanding of how `[NSApp run]` interacts with the GCD main queue before any fix made sense.
 
-What vibe coding gave me here wasn't just speed. It was a collaborator who could hold the full context — the threading model, the AppKit behaviour, the Panama FFM constraints, the JVM vs native image differences — and reason across all of them simultaneously. When the dispatch block turned out to be the thread running through every other symptom, that was a cross-cutting insight that would have taken me much longer to reach alone.
+What this collaboration gave me wasn't just speed. It was a partner who could hold the full context — the threading model, the AppKit behaviour, the Panama FFM constraints, the JVM vs native image differences — and reason across all of them simultaneously. When the dispatch block turned out to be the thread running through every other symptom, that was a cross-cutting insight that would have taken me much longer to reach alone.
 
 ---
 
@@ -265,6 +265,3 @@ NSTextField cursor invisible         → Apply windowDidBecomeKey: blink fix
 Crash: "must be on main thread"      → JVM vs native image thread branch missing
 ```
 
----
-
-*Next: Plan 3 — PTY management and spawning the actual `claude` subprocess.*
