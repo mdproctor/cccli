@@ -85,4 +85,6 @@ We tried `dispatch_after(50ms, main_queue, block)` to defer the cursor fix until
 
 By the end: NSTextField → Enter → Panama upcall → Java ✅, Java → downcall → NSTextView update ✅, cursor visible from open ✅, window close → clean terminate ✅, JVM and native image both working at 0.020s.
 
+## The Pattern
+
 Every bug taught the same lesson from a different angle. The threading model of this architecture — GCD + AppKit + Panama FFM + Quarkus — has sharp edges. Once you understand that GCD main queue serialisation locks out dispatch blocks when `[NSApp run]` is nested inside one, everything else follows. Synchronous updates, AppKit delegates, no dispatch. That's the rule. PTY integration — actually spawning claude and routing its output — is where that rule gets tested again.

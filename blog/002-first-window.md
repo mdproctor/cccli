@@ -31,7 +31,7 @@ intptr_t myui_start(const char*, int, int, WindowClosedCallback);
 
 ---
 
-## What we tried
+## The Pivots (There Were Several)
 
 ### Pivot 1: Quarkus isn't on the main thread in JVM mode
 
@@ -138,6 +138,8 @@ if ([NSThread isMainThread]) {
 The architecture holds. Every pivot was absorbed by the design — the Objective-C bridge stayed minimal, the Java side stayed clean, and the `SessionProvider`/`OutputRenderer` interfaces we defined at the start of the project remain exactly where they should be.
 
 ---
+
+## Six pivots, zero architecture changes
 
 Six pivots across one build session, none of them required rethinking the architecture. Each one was a local fix — a wrong format, a wrong assumption about which thread a framework uses, a GraalVM version-specific quirk.
 

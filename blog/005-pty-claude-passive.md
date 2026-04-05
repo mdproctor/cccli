@@ -15,7 +15,7 @@ I expected the PTY work to be the difficult part. Raw POSIX calls through Panama
 
 What I didn't expect was GCD Bug 3 coming back.
 
-## What we tried
+## What we tried: it was never just the PTY
 
 I gave Claude the PosixLibrary spec and let it run — 17 POSIX functions as static `MethodHandle` fields, TDD against real PTY devices. It came back clean. PtyProcess next: open a master/slave pair, spawn a subprocess with its stdio wired to the slave, read output on a daemon thread. "Cat round-trip works," Claude reported back. Write `hello`, read back `hello`.
 
