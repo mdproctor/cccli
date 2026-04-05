@@ -7,6 +7,7 @@ import io.quarkus.runtime.Quarkus;
 import io.quarkus.runtime.QuarkusApplication;
 import io.quarkus.runtime.annotations.QuarkusMain;
 import jakarta.inject.Inject;
+import java.nio.file.Path;
 
 @QuarkusMain
 public class Main implements QuarkusApplication {
@@ -20,31 +21,42 @@ public class Main implements QuarkusApplication {
 
     @Override
     public int run(String... args) {
+        Path claudePath = ClaudeLocator.locate();
+        if (claudePath == null) {
+            Log.error("claude binary not found in PATH");
+            /* Write error to output pane then exit — bridge isn't started yet,
+             * so we can't use appendOutput. Exit with a message to stderr.      */
+            System.err.println("""
+                    claude not found. Install it with:
+                      npm install -g @anthropic-ai/claude-code
+                    Then relaunch the app.
+                    """);
+            return 1;
+        }
+        Log.infof("Found claude at: %s", claudePath);
+
         PtyProcess pty = new PtyProcess();
-
-        // Open PTY and spawn test subprocess.
-        // Plan 4 replaces /bin/cat with the resolved `claude` binary.
         pty.open();
-        pty.spawn(new String[]{"/bin/cat"});
+        pty.spawn(new String[]{claudePath.toString()});
 
-        // Reader runs on a daemon thread. bridge.appendOutput() is thread-safe:
-        // myui_append_output() dispatches to the AppKit main thread via dispatch_async.
-        pty.startReader(text -> bridge.appendOutput(text));
+        // Strip ANSI escape codes before display — NSTextView has no terminal
+        // emulation. Plan 5b switches to WKWebView + xterm.js which handles
+        // ANSI natively; AnsiStripper is removed at that point.
+        pty.startReader(text -> bridge.appendOutput(AnsiStripper.strip(text)));
 
-        // Set an initial terminal size (rows, cols).
-        // Plan 5 wires this to the actual window size.
+        // Plan 5 wires resize to actual window dimensions.
         pty.resize(24, 120);
 
         Log.info("Starting Claude Desktop CLI...");
         bridge.start("Claude Desktop CLI", 900, 600,
-                "Claude Desktop CLI — PTY ready. Type and press Enter.\n",
+                "Connecting to Claude...\n",
                 () -> {
                     Log.info("Window closed — terminating");
                     pty.close();
                     bridge.terminate();
                 },
                 text -> {
-                    Log.infof("Sending to PTY: %s", text);
+                    Log.infof("Sending to claude: %s", text);
                     pty.write(text + "\n");
                 });
 
