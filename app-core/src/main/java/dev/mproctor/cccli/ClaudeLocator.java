@@ -32,6 +32,7 @@ public final class ClaudeLocator {
             Path path = Path.of(output).toAbsolutePath();
             return Files.isExecutable(path) ? path : null;
         } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             return null;
         }
     }
