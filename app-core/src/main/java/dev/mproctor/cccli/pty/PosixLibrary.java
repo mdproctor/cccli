@@ -30,6 +30,18 @@ public final class PosixLibrary {
     /** waitpid(2) options */
     public static final int WNOHANG = 1;
 
+    /** tcsetattr(2) optional_actions */
+    public static final int TCSANOW = 0;
+
+    /**
+     * Offset of c_lflag in struct termios (macOS AArch64).
+     * Layout: c_iflag(8) + c_oflag(8) + c_cflag(8) + c_lflag(8) + c_cc[20]
+     * c_lflag is at byte offset 24.
+     */
+    public static final long TERMIOS_LFLAG_OFFSET = 24;
+    /** ECHO bit in c_lflag — suppress terminal echo of input characters */
+    public static final long ECHO_FLAG = 0x00000008L;
+
     // ── Linker and lookup ────────────────────────────────────────────────────
 
     private static final Linker       LINKER = Linker.nativeLinker();
@@ -56,6 +68,17 @@ public final class PosixLibrary {
     private static final MethodHandle PTSNAME = LINKER.downcallHandle(
             LIBC.find("ptsname").orElseThrow(),
             FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
+
+    /** int tcgetattr(int fd, struct termios* t) */
+    private static final MethodHandle TCGETATTR = LINKER.downcallHandle(
+            LIBC.find("tcgetattr").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
+
+    /** int tcsetattr(int fd, int optional_actions, const struct termios* t) */
+    private static final MethodHandle TCSETATTR = LINKER.downcallHandle(
+            LIBC.find("tcsetattr").orElseThrow(),
+            FunctionDescriptor.of(ValueLayout.JAVA_INT,
+                    ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
 
     /** int open(const char* path, int oflag) */
     private static final MethodHandle OPEN = LINKER.downcallHandle(
@@ -162,6 +185,16 @@ public final class PosixLibrary {
             if (ptr == null || MemorySegment.NULL.equals(ptr)) return null;
             return ptr.reinterpret(256).getString(0);
         } catch (Throwable t) { throw new RuntimeException("ptsname", t); }
+    }
+
+    public static int tcgetattr(int fd, MemorySegment termios) {
+        try { return (int) TCGETATTR.invokeExact(fd, termios); }
+        catch (Throwable t) { throw new RuntimeException("tcgetattr", t); }
+    }
+
+    public static int tcsetattr(int fd, int actions, MemorySegment termios) {
+        try { return (int) TCSETATTR.invokeExact(fd, actions, termios); }
+        catch (Throwable t) { throw new RuntimeException("tcsetattr", t); }
     }
 
     /** Opens a file and returns its fd, or -1 on error. */

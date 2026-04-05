@@ -3,12 +3,17 @@
 #include <string.h>
 #include "MyMacUI.h"
 
+/* ── Forward declarations ────────────────────────────────────────────────── */
+
+static void doAppend(NSString *str);
+
 /* ── AppDelegate ─────────────────────────────────────────────────────────── */
 
 @interface CCCAppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 @property (nonatomic, assign) WindowClosedCallback   onClosed;
 @property (nonatomic, assign) TextSubmittedCallback  onTextSubmitted;
 @property (nonatomic, weak)   NSTextField           *inputField;
+- (void)appendToOutput:(NSString *)str;
 @end
 
 @implementation CCCAppDelegate
@@ -29,6 +34,10 @@
         [self.inputField setStringValue:@""];
         self.inputField = nil; /* clear so this only runs once */
     }
+}
+
+- (void)appendToOutput:(NSString *)str {
+    doAppend(str);
 }
 
 - (void)windowWillClose:(NSNotification *)notification {
@@ -189,12 +198,15 @@ void myui_append_output(const char *text) {
     if (!text) return;
     NSString *str = [NSString stringWithUTF8String:text];
     if ([NSThread isMainThread]) {
-        /* Called from AppKit event handler (upcall via textFieldSubmit:).
-         * dispatch_async blocks are not drained while inside a Panama upcall
-         * on the main thread — update the text view synchronously instead. */
         doAppend(str);
     } else {
-        dispatch_async(dispatch_get_main_queue(), ^{ doAppend(str); });
+        /* Cannot use dispatch_async — GCD main queue is serialised while
+         * [NSApp run] executes inside a dispatch_async block (see AppKit pitfalls).
+         * performSelectorOnMainThread: schedules on the NSRunLoop instead,
+         * which drains correctly regardless of GCD queue state.            */
+        [appDelegate performSelectorOnMainThread:@selector(appendToOutput:)
+                                     withObject:str
+                                  waitUntilDone:NO];
     }
 }
 

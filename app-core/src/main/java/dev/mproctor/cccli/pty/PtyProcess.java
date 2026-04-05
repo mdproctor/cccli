@@ -70,6 +70,21 @@ public class PtyProcess {
         }
         this.masterFd  = mfd;
         this.slavePath = path;
+
+        // Disable PTY line discipline echo so bytes written to master are not
+        // echoed back to the reader. Without this, every keystroke appears twice:
+        // once from the line discipline echo, and once from the subprocess output.
+        // struct termios (macOS AArch64): 4 × unsigned long (8 bytes each) flags,
+        // then c_cc[20]. c_lflag is at byte offset 24.
+        try (Arena temp = Arena.ofConfined()) {
+            MemorySegment termios = temp.allocate(64); // 52 bytes needed; 64 for alignment
+            if (PosixLibrary.tcgetattr(mfd, termios) == 0) {
+                long lflag = termios.get(ValueLayout.JAVA_LONG, PosixLibrary.TERMIOS_LFLAG_OFFSET);
+                lflag &= ~PosixLibrary.ECHO_FLAG;
+                termios.set(ValueLayout.JAVA_LONG, PosixLibrary.TERMIOS_LFLAG_OFFSET, lflag);
+                PosixLibrary.tcsetattr(mfd, PosixLibrary.TCSANOW, termios);
+            }
+        }
     }
 
     // ── Accessors for tests ──────────────────────────────────────────────────
