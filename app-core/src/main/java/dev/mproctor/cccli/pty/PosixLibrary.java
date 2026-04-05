@@ -26,6 +26,7 @@ public final class PosixLibrary {
     /** Signal numbers */
     public static final int SIGTERM = 15;
     public static final int SIGKILL = 9;
+    public static final int SIGINT  = 2;
 
     /** waitpid(2) options */
     public static final int WNOHANG = 1;

@@ -204,6 +204,16 @@ public class PtyProcess {
         }
     }
 
+    // ── Signals ──────────────────────────────────────────────────────────────
+
+    /**
+     * Sends SIGINT to the subprocess (equivalent to Ctrl+C in a terminal).
+     * Safe to call if the subprocess has already exited — kill() returns -1 harmlessly.
+     */
+    public void sendSigInt() {
+        if (pid > 0) PosixLibrary.kill(pid, PosixLibrary.SIGINT);
+    }
+
     // ── Close ────────────────────────────────────────────────────────────────
 
     /**
