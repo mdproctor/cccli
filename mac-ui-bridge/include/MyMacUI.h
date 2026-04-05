@@ -15,6 +15,9 @@ typedef void (*WindowClosedCallback)(void);
  *  text is a null-terminated UTF-8 string; valid only for the duration of the call. */
 typedef void (*TextSubmittedCallback)(const char* text);
 
+/** Fired on the AppKit main thread when the user clicks the Stop button. */
+typedef void (*StopClickedCallback)(void);
+
 /** Initialize NSApplication. Must be called first, on the main thread. */
 void myui_init_application(void);
 
@@ -31,29 +34,29 @@ void myui_run(void);
 void myui_terminate(void);
 
 /**
- * Full entry point. Dispatches to the main thread, creates the window with a
- * split pane (WKWebView terminal top, NSTextView input bottom), loads initialHtml
- * into the terminal pane, then starts the AppKit event loop.
+ * Enter or exit passive mode:
+ *   passive=1 → disable input field, show Stop button
+ *   passive=0 → enable input field, hide Stop button, restore focus
+ * Thread-safe — dispatches to AppKit main thread internally.
+ */
+void myui_set_passive_mode(int passive);
+
+/**
+ * Full entry point. Creates the window with a split pane, loads initial text,
+ * starts the AppKit event loop, and blocks until the application terminates.
  *
- * Blocks the calling thread until the application terminates.
+ * onStop is fired when the user clicks the Stop button (PASSIVE mode only).
  * Safe to call from any thread.
- *
- * initialHtml     - HTML string loaded into the terminal WKWebView at startup.
- * onClosed        - called when the user closes the window.
- * onTextSubmitted - called when the user presses Enter in the input pane.
  */
 intptr_t myui_start(const char* title,
                     int width,
                     int height,
                     const char* initialHtml,
                     WindowClosedCallback onClosed,
-                    TextSubmittedCallback onTextSubmitted);
+                    TextSubmittedCallback onTextSubmitted,
+                    StopClickedCallback onStop);
 
-/**
- * Append plain text to the output pane. Thread-safe.
- * Development: appends to NSTextView.
- * Production (.app bundle): will route through xterm.js.
- */
+/** Append plain text to the output pane. Thread-safe. */
 void myui_append_output(const char* text);
 
 /** Retained for ABI compatibility — no-op in current implementation. */

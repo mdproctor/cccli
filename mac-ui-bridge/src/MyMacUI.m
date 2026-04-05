@@ -7,13 +7,20 @@
 
 static void doAppend(NSString *str);
 
+/* Forward-declare module globals so applyPassiveMode: can reference them
+ * before the static definitions appear later in the translation unit.     */
+static NSTextField *theInputField;
+static NSButton    *theStopButton;
+
 /* ── AppDelegate ─────────────────────────────────────────────────────────── */
 
 @interface CCCAppDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 @property (nonatomic, assign) WindowClosedCallback   onClosed;
 @property (nonatomic, assign) TextSubmittedCallback  onTextSubmitted;
+@property (nonatomic, assign) StopClickedCallback    onStop;
 @property (nonatomic, weak)   NSTextField           *inputField;
 - (void)appendToOutput:(NSString *)str;
+- (void)applyPassiveMode:(NSNumber *)value;
 @end
 
 @implementation CCCAppDelegate
@@ -40,6 +47,17 @@ static void doAppend(NSString *str);
     doAppend(str);
 }
 
+- (void)applyPassiveMode:(NSNumber *)value {
+    BOOL passive = value.boolValue;
+    theInputField.enabled = !passive;
+    theStopButton.hidden  = !passive;
+    /* Restore keyboard focus to input when becoming interactive */
+    if (!passive) {
+        NSWindow *w = theInputField.window;
+        if (w) [w makeFirstResponder:theInputField];
+    }
+}
+
 - (void)windowWillClose:(NSNotification *)notification {
     if (self.onClosed) {
         WindowClosedCallback cb = self.onClosed;
@@ -58,18 +76,25 @@ static void doAppend(NSString *str);
     sender.stringValue = @"";
 }
 
+/* NSButton action — fired when user clicks the Stop button */
+- (void)stopButtonClicked:(NSButton *)sender {
+    if (self.onStop) self.onStop();
+}
+
 @end
 
 /* ── Module-level state ───────────────────────────────────────────────────── */
 
 static CCCAppDelegate *appDelegate    = nil;
 static NSTextView     *theOutputView  = nil;
+/* theInputField and theStopButton are forward-declared above. */
 
 /* ── Internal helpers ─────────────────────────────────────────────────────── */
 
 static void setupUI(NSWindow *window,
                     const char *initialText,
-                    TextSubmittedCallback onTextSubmitted) {
+                    TextSubmittedCallback onTextSubmitted,
+                    StopClickedCallback   onStop) {
     /* KEY: add views to the EXISTING contentView — never replace it.
      * Replacing contentView breaks keyboard event routing.             */
 
@@ -143,11 +168,25 @@ static void setupUI(NSWindow *window,
     inputField.target = appDelegate;
     inputField.action = @selector(textFieldSubmit:);
     [root addSubview:inputField];
+    theInputField = inputField;
 
-    /* Store reference so windowDidBecomeKey: can apply the cursor-blink fix
-     * at the correct moment (inside the run loop, not before it starts). */
-    appDelegate.inputField = inputField;
+    /* ── Stop button (overlaid right of input, hidden by default) ──────── */
+    CGFloat btnW = 60.0;
+    NSButton *stopBtn = [[NSButton alloc]
+        initWithFrame:NSMakeRect(w - btnW - 8, 4, btnW, 28)];
+    stopBtn.autoresizingMask = NSViewMinXMargin | NSViewMaxYMargin;
+    stopBtn.title            = @"Stop";
+    stopBtn.bezelStyle       = NSBezelStyleRounded;
+    stopBtn.target           = appDelegate;
+    stopBtn.action           = @selector(stopButtonClicked:);
+    stopBtn.hidden           = YES;
+    [root addSubview:stopBtn];
+    theStopButton = stopBtn;
+
+    /* Store references for delegate callbacks */
+    appDelegate.inputField      = inputField;  /* cursor-blink fix, then cleared */
     appDelegate.onTextSubmitted = onTextSubmitted;
+    appDelegate.onStop          = onStop;
 }
 
 /* ── C ABI implementation ─────────────────────────────────────────────────── */
@@ -187,6 +226,15 @@ void myui_run(void) { [NSApp run]; }
 
 void myui_terminate(void) { [NSApp terminate:nil]; }
 
+void myui_set_passive_mode(int passive) {
+    /* Cannot use dispatch_async — GCD main queue is serialised when [NSApp run]
+     * executes inside a dispatch_async block (AppKit pitfall #1).
+     * performSelectorOnMainThread: schedules on NSRunLoop instead.         */
+    [appDelegate performSelectorOnMainThread:@selector(applyPassiveMode:)
+                                 withObject:@((BOOL)passive)
+                              waitUntilDone:NO];
+}
+
 static void doAppend(NSString *str) {
     if (!theOutputView) return;
     NSString *updated = [(theOutputView.string ?: @"") stringByAppendingString:str];
@@ -200,10 +248,7 @@ void myui_append_output(const char *text) {
     if ([NSThread isMainThread]) {
         doAppend(str);
     } else {
-        /* Cannot use dispatch_async — GCD main queue is serialised while
-         * [NSApp run] executes inside a dispatch_async block (see AppKit pitfalls).
-         * performSelectorOnMainThread: schedules on the NSRunLoop instead,
-         * which drains correctly regardless of GCD queue state.            */
+        /* performSelectorOnMainThread: instead of dispatch_async — see AppKit pitfall #1. */
         [appDelegate performSelectorOnMainThread:@selector(appendToOutput:)
                                      withObject:str
                                   waitUntilDone:NO];
@@ -211,8 +256,7 @@ void myui_append_output(const char *text) {
 }
 
 /* myui_load_html and myui_evaluate_javascript are retained in the ABI for
- * future WKWebView integration (Plan 3+, inside a proper .app bundle).
- * They are no-ops in this NSTextView-based development implementation.    */
+ * future WKWebView integration (Plan 5b, inside a proper .app bundle).    */
 void myui_load_html(const char *html) { (void)html; }
 void myui_evaluate_javascript(const char *script) { (void)script; }
 
@@ -221,7 +265,8 @@ intptr_t myui_start(const char *title,
                     int height,
                     const char *initialHtml,
                     WindowClosedCallback onClosed,
-                    TextSubmittedCallback onTextSubmitted) {
+                    TextSubmittedCallback onTextSubmitted,
+                    StopClickedCallback onStop) {
 
     __block intptr_t windowHandle = 0;
     char *titleCopy = strdup(title       ? title       : "");
@@ -233,7 +278,7 @@ intptr_t myui_start(const char *title,
             windowHandle = myui_create_window(titleCopy, width, height, onClosed);
             free(titleCopy);
             NSWindow *window = (__bridge NSWindow *)(void *)windowHandle;
-            setupUI(window, htmlCopy, onTextSubmitted);
+            setupUI(window, htmlCopy, onTextSubmitted, onStop);
             free(htmlCopy);
             [NSApp run];
             CFRunLoopStop(CFRunLoopGetCurrent());
@@ -246,7 +291,7 @@ intptr_t myui_start(const char *title,
             windowHandle = myui_create_window(titleCopy, width, height, onClosed);
             free(titleCopy);
             NSWindow *window = (__bridge NSWindow *)(void *)windowHandle;
-            setupUI(window, htmlCopy, onTextSubmitted);
+            setupUI(window, htmlCopy, onTextSubmitted, onStop);
             free(htmlCopy);
             [NSApp run];
             dispatch_semaphore_signal(done);
