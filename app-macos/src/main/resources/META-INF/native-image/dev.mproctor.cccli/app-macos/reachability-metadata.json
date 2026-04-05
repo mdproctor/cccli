@@ -12,12 +12,19 @@
         "method": "onTextSubmitted",
         "returnType": "void",
         "parameterTypes": ["void*"]
+      },
+      {
+        "class": "dev.mproctor.cccli.bridge.Callbacks",
+        "method": "onStopClicked",
+        "returnType": "void",
+        "parameterTypes": []
       }
     ],
     "downcalls": [
-      {"returnType": "jlong", "parameterTypes": ["void*", "jint", "jint", "void*", "void*", "void*"]},
+      {"returnType": "jlong", "parameterTypes": ["void*", "jint", "jint", "void*", "void*", "void*", "void*"]},
       {"returnType": "void",  "parameterTypes": ["void*"]},
       {"returnType": "void",  "parameterTypes": []},
+      {"returnType": "void",  "parameterTypes": ["jint"]},
       {"returnType": "jint",  "parameterTypes": ["jint"]},
       {"returnType": "jint",  "parameterTypes": ["void*"]},
       {"returnType": "void*", "parameterTypes": ["jint"]},

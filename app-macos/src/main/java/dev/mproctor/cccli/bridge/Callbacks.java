@@ -29,6 +29,7 @@ public final class Callbacks {
 
     private static volatile Runnable         windowClosedHandler;
     private static volatile Consumer<String> textSubmittedHandler;
+    private static volatile Runnable         stopClickedHandler;
 
     /** Creates a void(*)(void) upcall stub that calls handler when the window closes. */
     public static MemorySegment createWindowClosedCallback(Arena arena, Runnable handler) {
@@ -57,6 +58,19 @@ public final class Callbacks {
         }
     }
 
+    /** Creates a void(*)(void) upcall stub that calls handler when the Stop button is clicked. */
+    public static MemorySegment createStopClickedCallback(Arena arena, Runnable handler) {
+        stopClickedHandler = handler;
+        try {
+            MethodHandle mh = MethodHandles.lookup()
+                    .findStatic(Callbacks.class, "onStopClicked",
+                            MethodType.methodType(void.class));
+            return Linker.nativeLinker().upcallStub(mh, VOID_VOID, arena);
+        } catch (NoSuchMethodException | IllegalAccessException e) {
+            throw new RuntimeException("Failed to create stop-clicked upcall stub", e);
+        }
+    }
+
     /** Called from Objective-C when the window closes. Registered in reflect-config.json. */
     public static void onWindowClosed() {
         Runnable handler = windowClosedHandler;
@@ -75,6 +89,12 @@ public final class Callbacks {
             String text = textPtr.reinterpret(Long.MAX_VALUE).getString(0);
             handler.accept(text);
         }
+    }
+
+    /** Called from Objective-C when the user clicks the Stop button. Registered in reflect-config.json. */
+    public static void onStopClicked() {
+        Runnable handler = stopClickedHandler;
+        if (handler != null) handler.run();
     }
 
     private Callbacks() {}

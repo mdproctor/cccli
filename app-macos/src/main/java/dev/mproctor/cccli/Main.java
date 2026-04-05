@@ -58,7 +58,8 @@ public class Main implements QuarkusApplication {
                 text -> {
                     Log.infof("Sending to claude: %s", text);
                     pty.write(text + "\n");
-                });
+                },
+                () -> {}); // TODO Task 4: replace with real stop handler
 
         Log.info("Application terminated");
         return 0;

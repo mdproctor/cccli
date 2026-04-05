@@ -49,16 +49,16 @@ public class MacUIBridge {
     public long start(String title, int width, int height,
                       String initialHtml,
                       Runnable onClosed,
-                      Consumer<String> onTextSubmitted) {
+                      Consumer<String> onTextSubmitted,
+                      Runnable onStop) {
         try (Arena temp = Arena.ofConfined()) {
             MemorySegment titleSeg    = temp.allocateFrom(title != null ? title : "");
-            MemorySegment htmlSeg     = temp.allocateFrom(initialHtml != null
-                                                          ? initialHtml : "");
+            MemorySegment htmlSeg     = temp.allocateFrom(initialHtml != null ? initialHtml : "");
             MemorySegment closedCb    = Callbacks.createWindowClosedCallback(arena, onClosed);
-            MemorySegment submittedCb = Callbacks.createTextSubmittedCallback(arena,
-                                                                               onTextSubmitted);
+            MemorySegment submittedCb = Callbacks.createTextSubmittedCallback(arena, onTextSubmitted);
+            MemorySegment stopCb      = Callbacks.createStopClickedCallback(arena, onStop);
             return MyMacUI_h.myui_start(titleSeg, width, height,
-                                        htmlSeg, closedCb, submittedCb);
+                                        htmlSeg, closedCb, submittedCb, stopCb);
         }
     }
 
@@ -82,6 +82,16 @@ public class MacUIBridge {
             MemorySegment textSeg = temp.allocateFrom(text != null ? text : "");
             MyMacUI_h.myui_append_output(textSeg);
         }
+    }
+
+    /**
+     * Enable or disable passive mode. Thread-safe — the ObjC bridge dispatches
+     * to the AppKit main thread via performSelectorOnMainThread:.
+     *   passive=true  → input field disabled, Stop button visible
+     *   passive=false → input field enabled, Stop button hidden
+     */
+    public void setPassiveMode(boolean passive) {
+        MyMacUI_h.myui_set_passive_mode(passive ? 1 : 0);
     }
 
     /** No-op in current implementation — retained for future WKWebView use. */
