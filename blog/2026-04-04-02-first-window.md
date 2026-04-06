@@ -1,6 +1,7 @@
 # The First Window: Building the Bridge Foundation
 
-*Part 2 of an evolving series. The architecture was decided in Part 1 — now we build.*
+**Date:** 2026-04-04
+**Type:** phase-update
 
 ---
 
@@ -32,6 +33,8 @@ intptr_t myui_start(const char*, int, int, WindowClosedCallback);
 ---
 
 ## The Pivots (There Were Several)
+
+Working with Claude, we hit six distinct problems before the window appeared and the upcall fired.
 
 ### Pivot 1: Quarkus isn't on the main thread in JVM mode
 
