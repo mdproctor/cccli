@@ -22,8 +22,13 @@ public final class ClaudeLocator {
      * Blocks briefly while running {@code which claude} in a login shell.
      */
     public static Path locate() {
+        return locate("/bin/zsh", "-l", "-c", "which claude");
+    }
+
+    /** Package-private for testing — allows injecting a custom shell command. */
+    static Path locate(String... command) {
         try {
-            Process p = new ProcessBuilder("/bin/zsh", "-l", "-c", "which claude")
+            Process p = new ProcessBuilder(command)
                     .redirectErrorStream(true)
                     .start();
             String output = new String(p.getInputStream().readAllBytes()).strip();

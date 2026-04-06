@@ -29,7 +29,8 @@ public class MacUIBridge {
 
     @PostConstruct
     void loadDylib() {
-        String pathStr = resolveDylibPath();
+        String pathStr = resolveDylibPath(
+                ProcessHandle.current().info().command().orElse(""));
         Path path = Path.of(pathStr).toAbsolutePath();
         Log.infof("Loading dylib from: %s", path);
         System.load(path.toString());
@@ -43,19 +44,20 @@ public class MacUIBridge {
      * 2. .app bundle path: executable is at Contents/MacOS/<name>,
      *    dylib is at Contents/Frameworks/libMyMacUI.dylib
      * 3. Dev mode default: ../mac-ui-bridge/build/libMyMacUI.dylib
+     *
+     * Package-private to allow unit testing with a simulated executable path.
      */
-    private String resolveDylibPath() {
+    String resolveDylibPath(String executablePath) {
         // 1. Explicit override
         String prop = System.getProperty(DYLIB_PATH_PROP);
         if (prop != null) return prop;
 
-        // 2. .app bundle detection via current executable path
+        // 2. .app bundle detection
         // exe = .../Contents/MacOS/claude-desktop
         // exe.getParent() = .../Contents/MacOS
         // exe.getParent().getParent() = .../Contents
-        String cmd = ProcessHandle.current().info().command().orElse("");
-        if (!cmd.isEmpty()) {
-            Path exe = Path.of(cmd).toAbsolutePath();
+        if (!executablePath.isEmpty()) {
+            Path exe = Path.of(executablePath).toAbsolutePath();
             if (exe.getParent() != null && exe.getParent().getParent() != null) {
                 Path bundleDylib = exe.getParent().getParent()
                         .resolve("Frameworks/libMyMacUI.dylib");
