@@ -234,3 +234,107 @@ AppKit does not start the insertion-point blink timer for an empty NSTextField t
 [inputField setStringValue:@""];
 ```
 This must be done inside an AppKit delegate method (see ADR-008 — GCD dispatch is not available in this setup).
+
+---
+
+## ADR-012: performSelectorOnMainThread: for all non-main-thread UI updates
+
+**Date:** 2026-04-05
+**Status:** Decided (Plan 3 — PTY integration)
+
+### Context
+
+ADR-008 established that `dispatch_async(main_queue, ...)` silently drops while `[NSApp run]` is inside a `dispatch_async` block, and that AppKit upcalls on the main thread must update synchronously. Plan 3 introduced a new non-main-thread caller: the PTY reader daemon thread, which calls `myui_append_output()` to stream Claude's output to the display.
+
+### Problem
+
+The PTY reader thread is not an AppKit upcall — it's a plain Java daemon thread. The existing `myui_append_output()` implementation checked `[NSThread isMainThread]` and used `dispatch_async` for the non-main-thread path. Output from the PTY reader silently disappeared.
+
+### Decision
+
+Replace `dispatch_async(dispatch_get_main_queue(), ...)` with `performSelectorOnMainThread:withObject:waitUntilDone:NO` throughout `MyMacUI.m` for all non-main-thread callers. `performSelectorOnMainThread:` schedules on NSRunLoop directly — it is not affected by GCD main queue serialisation.
+
+The same approach applies to `myui_set_passive_mode()` which is called from the `InteractionDetector` scheduler thread.
+
+### Rule
+
+Any function in `MyMacUI.m` that may be called from a non-main thread must use `performSelectorOnMainThread:withObject:waitUntilDone:NO`, never `dispatch_async(main_queue, ...)`.
+
+---
+
+## ADR-013: PTY line discipline ECHO disabled via tcgetattr/tcsetattr
+
+**Date:** 2026-04-05
+**Status:** Decided (Plan 3 — PTY integration)
+
+### Context
+
+After opening a PTY master/slave pair and spawning the `claude` subprocess, the PTY reader thread received every line of output twice.
+
+### Root Cause
+
+The PTY line discipline has `ECHO` enabled by default. When the parent writes bytes to the master fd (simulating keyboard input), the line discipline echoes those bytes back to the master — before the subprocess even reads them. The subprocess then writes its response to the slave stdout, which also arrives at the master. Result: two copies of every line.
+
+### Decision
+
+After `posix_openpt`, call `tcgetattr(masterFd, &termios)`, clear the `ECHO` bit in `c_lflag` (`0x00000008`), and call `tcsetattr(masterFd, TCSANOW, &termios)`.
+
+On macOS AArch64: `tcflag_t` is `unsigned long` (8 bytes). `c_lflag` is the 4th field in `struct termios`, at byte offset 24.
+
+### Why Not Filter in Software
+
+Filtering duplicate lines in the reader would require maintaining state across chunks and would be fragile (timing-dependent, prone to false positives with repeated content). Disabling ECHO at the PTY level is the canonical POSIX solution.
+
+---
+
+## ADR-014: InteractionDetector — timer-based mode transitions
+
+**Date:** 2026-04-05
+**Status:** Decided (Plan 5 — passive mode)
+
+### Context
+
+The app needs to know when Claude is generating (PASSIVE mode: block input) vs waiting for input (FREE_TEXT mode: enable input). The PTY byte stream provides no explicit signal — Claude Code's TUI output is rich with ANSI sequences and no clean "done" marker.
+
+### Options Considered
+
+| Option | Verdict | Reason |
+|--------|---------|--------|
+| Pattern-match on Claude's prompt text | Rejected | Claude Code's output format changes across versions; brittle to maintain |
+| Semantic parsing of ANSI sequences | Rejected | Significant complexity; xterm.js handles this in production — premature here |
+| Timeout-based: quiet period → FREE_TEXT | **Chosen** | Simple, reliable, format-agnostic; works regardless of Claude's TUI implementation |
+
+### Decision
+
+`InteractionDetector` in `app-core`:
+- Any PTY output → PASSIVE (disable input, show Stop button)
+- 800ms of silence → FREE_TEXT (enable input, hide Stop button)
+- User submit → PASSIVE immediately (before PTY output arrives)
+- Stop button / window close → FREE_TEXT immediately via `forceIdle()`
+
+The 800ms threshold balances responsiveness (re-enable promptly) against stability (don't flicker during Claude's mid-response pauses).
+
+---
+
+## ADR-015: AnsiStripper as dev-only NSTextView bridge to xterm.js
+
+**Date:** 2026-04-05
+**Status:** Decided (Plan 4 — wire to claude)
+
+### Context
+
+Claude Code outputs extensive ANSI/VT100 escape sequences — colours, cursor movement, progress spinners, OSC sequences. NSTextView has no terminal emulation; these sequences render as literal characters, making output unreadable.
+
+### Options Considered
+
+| Option | Verdict | Reason |
+|--------|---------|--------|
+| Display raw bytes | Rejected | Completely unreadable in NSTextView |
+| Full VT100 parser in Java | Rejected | Premature — xterm.js handles this in production; implementing it in Java duplicates work |
+| Regex stripping (AnsiStripper) | **Chosen** | Minimal, removes the visible garbage, readable text; explicitly dev-only |
+
+### Decision
+
+`AnsiStripper` strips four escape sequence types (CSI, OSC, single-char VT100, bare CR) before passing text to `bridge.appendOutput()`. It is explicitly marked as a development workaround — it is removed when Plan 5b replaces NSTextView with WKWebView + xterm.js.
+
+The `AnsiStripper` pattern (`[A-Za-z0-9=>?]` for single-char escapes) is intentionally narrow to avoid stripping valid non-ANSI content.
