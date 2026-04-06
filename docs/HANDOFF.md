@@ -22,7 +22,7 @@ The user is a **Java developer who cannot code Swift**. All business logic must 
 
 ### Phase 1 — Architecture R&D (No code written)
 
-Pivots made: JavaFX rejected → Swift rejected → SWT rejected → JNI rejected → **Objective-C bridge + Panama FFM + Quarkus Native** chosen. Full story in `blog/001-architecture-evolution.md`.
+Pivots made: JavaFX rejected → Swift rejected → SWT rejected → JNI rejected → **Objective-C bridge + Panama FFM + Quarkus Native** chosen. Full story in `blog/2026-04-04-01-architecture-evolution.md`.
 
 ### Phase 2 — Bridge Foundation ✅
 
@@ -88,11 +88,11 @@ Built `PosixLibrary` (17 POSIX functions via Panama FFM) and `PtyProcess` (open/
 │   ├── HANDOFF.md                   This document
 │   └── superpowers/plans/           Implementation plans (all complete)
 └── blog/
-    ├── 001-architecture-evolution.md
-    ├── 002-first-window.md
-    ├── 003-split-pane-ui.md
-    ├── 004-appkit-seven-bugs.md
-    └── 005-pty-claude-passive.md
+    ├── 2026-04-04-01-architecture-evolution.md
+    ├── 2026-04-04-02-first-window.md
+    ├── 2026-04-04-03-split-pane-ui.md
+    ├── 2026-04-04-04-appkit-seven-bugs.md
+    └── 2026-04-05-01-pty-claude-passive.md
 ```
 
 ### What Currently Works
