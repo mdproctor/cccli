@@ -43,14 +43,9 @@ public class Main implements QuarkusApplication {
         InteractionDetector detector = new InteractionDetector(
                 state -> bridge.setPassiveMode(state == ClaudeState.PASSIVE));
 
-        boolean webViewMode = bridge.isInBundle();
-        Log.infof("Output mode: %s", webViewMode ? "WKWebView/xterm.js (raw bytes)" : "NSTextView (ANSI stripped)");
-
         pty.startReader(text -> {
             detector.onOutput();
-            // In WKWebView mode, xterm.js handles ANSI natively — do NOT strip.
-            // In NSTextView dev mode, strip so escape codes don't appear as literal chars.
-            bridge.appendOutput(webViewMode ? text : AnsiStripper.strip(text));
+            bridge.appendOutput(text);
         });
 
         // Plan 5 wires resize to actual window dimensions.
