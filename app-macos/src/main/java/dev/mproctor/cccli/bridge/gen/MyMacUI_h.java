@@ -1292,6 +1292,34 @@ public class MyMacUI_h {
            throw new AssertionError("should not reach here", ex$);
         }
     }
+
+    private static class myui_is_bundle {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.of(
+            MyMacUI_h.C_INT
+        );
+
+        public static final MemorySegment ADDR = MyMacUI_h.findOrThrow("myui_is_bundle");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * {@snippet lang=c :
+     * int myui_is_bundle(void)
+     * }
+     */
+    public static int myui_is_bundle() {
+        var mh$ = myui_is_bundle.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("myui_is_bundle");
+            }
+            return (int) mh$.invokeExact();
+        } catch (Throwable ex$) {
+            throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     /**
      * {@snippet lang=c :
      * #define __DARWIN_SUF_EXTSN "$DARWIN_EXTSN"

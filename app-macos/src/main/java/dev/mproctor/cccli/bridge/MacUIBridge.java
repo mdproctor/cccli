@@ -73,6 +73,16 @@ public class MacUIBridge {
     }
 
     /**
+     * Returns true if running inside a proper .app bundle with xterm.js resources.
+     * When true, WKWebView is active and ANSI sequences must NOT be stripped before
+     * calling appendOutput() — xterm.js handles them natively.
+     * When false, NSTextView is active (dev/JVM mode) and ANSI must be stripped first.
+     */
+    public boolean isInBundle() {
+        return MyMacUI_h.myui_is_bundle() != 0;
+    }
+
+    /**
      * Launch the application window with a split pane UI.
      * Blocks until the user closes the window or terminate() is called.
      *

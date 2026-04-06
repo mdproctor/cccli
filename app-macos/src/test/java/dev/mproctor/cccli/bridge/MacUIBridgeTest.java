@@ -5,6 +5,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.*;
 
 /**
  * Unit tests for MacUIBridge.resolveDylibPath().
@@ -109,6 +110,21 @@ class MacUIBridgeTest {
         String result = bridge.resolveDylibPath("/claude-desktop");
         assertEquals("../mac-ui-bridge/build/libMyMacUI.dylib", result,
                 "single-level path should not NPE — should fall back to default");
+    }
+
+    // ── Tier 4: native binding ────────────────────────────────────────────────
+
+    @Test
+    void isInBundle_returnsFalse_inJvmTestMode() {
+        // Load the dylib so the Panama binding can be exercised.
+        // The dylib is built during generate-sources (make in mac-ui-bridge/).
+        Path dylib = Path.of("../mac-ui-bridge/build/libMyMacUI.dylib").toAbsolutePath();
+        assumeTrue(Files.exists(dylib), "dylib not built — skipping native binding test");
+        System.load(dylib.toString());
+
+        // In JVM test mode there are no bundle Resources, so myui_is_bundle() returns 0.
+        // This verifies the binding works and correctly detects non-bundle mode.
+        assertFalse(bridge.isInBundle());
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────
