@@ -3,7 +3,7 @@
 **Date:** 2026-04-06
 **Topic:** Architecture after Plans 1–5 (PTY layer, claude wiring, passive mode)
 **Supersedes:** *(none — first snapshot)*
-**Superseded by:** *(leave blank — filled in if superseded later)*
+**Superseded by:** [2026-04-07-wkwebview-xterm-complete](2026-04-07-wkwebview-xterm-complete.md)
 
 ---
 
