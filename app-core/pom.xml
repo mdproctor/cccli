@@ -28,6 +28,10 @@
                 <version>3.2.5</version>
                 <configuration>
                     <argLine>--enable-native-access=ALL-UNNAMED</argLine>
+                    <!-- Fork a fresh JVM per test class — Panama FFM native I/O (write/read
+                         on PTY slave fds) leaves internal state that can corrupt subsequent
+                         Panama downcall invocations in the same JVM process. -->
+                    <reuseForks>false</reuseForks>
                 </configuration>
             </plugin>
         </plugins>
