@@ -11,6 +11,8 @@ BUNDLE="$PROJECT_DIR/app-macos/target/$APP_NAME.app"
 CONTENTS="$BUNDLE/Contents"
 MACOS_DIR="$CONTENTS/MacOS"
 FRAMEWORKS_DIR="$CONTENTS/Frameworks"
+RESOURCES_DIR="$CONTENTS/Resources"
+XTERM_RESOURCES="$PROJECT_DIR/mac-ui-bridge/resources/xterm"
 
 NATIVE_BINARY="$PROJECT_DIR/app-macos/target/app-macos-1.0.0-SNAPSHOT-runner"
 DYLIB="$PROJECT_DIR/mac-ui-bridge/build/libMyMacUI.dylib"
@@ -39,7 +41,7 @@ echo "==> Assembling $APP_NAME.app..."
 
 # Create fresh bundle structure
 rm -rf "$BUNDLE"
-mkdir -p "$MACOS_DIR" "$FRAMEWORKS_DIR"
+mkdir -p "$MACOS_DIR" "$FRAMEWORKS_DIR" "$RESOURCES_DIR"
 
 # Copy and rename binary
 cp "$NATIVE_BINARY" "$MACOS_DIR/$BINARY_NAME"
@@ -48,6 +50,15 @@ chmod +x "$MACOS_DIR/$BINARY_NAME"
 # Copy dylib and Info.plist
 cp "$DYLIB"      "$FRAMEWORKS_DIR/libMyMacUI.dylib"
 cp "$INFO_PLIST" "$CONTENTS/Info.plist"
+
+# Copy xterm.js terminal resources
+if [ -d "$XTERM_RESOURCES" ]; then
+    cp -r "$XTERM_RESOURCES" "$RESOURCES_DIR/xterm"
+    echo "==> Copied xterm resources"
+else
+    echo "ERROR: xterm resources not found at: $XTERM_RESOURCES"
+    exit 1
+fi
 
 echo "==> Ad-hoc signing bundle..."
 codesign --sign - --force --deep "$BUNDLE"
