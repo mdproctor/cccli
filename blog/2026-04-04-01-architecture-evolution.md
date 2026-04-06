@@ -1,10 +1,11 @@
 # Building a Native macOS Claude Code Client: An Architecture Diary
 
-*Part 1 of an evolving series. This is a living document — updated as the project progresses and my thinking changes.*
+**Date:** 2026-04-04
+**Type:** day-zero
 
 ---
 
-## What I'm Building
+## What I'm building: a smarter interface for Claude Code
 
 Claude Code is a powerful CLI tool, but it runs in a terminal. I wanted something better: a macOS desktop application that wraps Claude Code with a smarter input/output experience.
 
@@ -51,7 +52,7 @@ So I started working through the open questions.
 
 ## Working Through the Architecture — and Finding the Real Problem
 
-We worked through five unresolved architectural questions:
+Working through this with Claude, we examined five unresolved architectural questions:
 
 1. **SwingNode vs TerminalFX** — JediTerm is a Swing component. Embedding it in JavaFX requires SwingNode. The risk: Retina rendering can be blurry (Swing and JavaFX have different HiDPI scaling pipelines), and focus management between the two toolkits is fragile. The vision document itself called this "the biggest v1 risk."
 2. **`claude` binary resolution** — macOS `.app` bundles don't inherit shell PATH; how to find the binary at runtime.
@@ -152,7 +153,9 @@ This is actually *more* capable than TamboUI was intended to be, and it fits the
 
 ## Where I Am Now (And It Might Change Again)
 
-This is my best understanding of the right architecture based on everything explored so far. It hasn't been built yet. Some of these decisions will survive contact with reality; some probably won't. The open questions still on the table — how PTY bytes flow to xterm.js, whether `posix_spawn` correctly establishes a controlling terminal, how AppKit callbacks and Quarkus worker threads hand off to each other — are the kind of things that only resolve when you actually write the code. Any of them could force another pivot.
+This is my best understanding of the right architecture based on everything explored so far. It hasn't been built yet.
+
+Some of these decisions will survive contact with reality; some probably won't. The open questions still on the table — how PTY bytes flow to xterm.js, whether `posix_spawn` correctly establishes a controlling terminal, how AppKit callbacks and Quarkus worker threads hand off to each other — are the kind of things that only resolve when you actually write the code. Any of them could force another pivot.
 
 That's fine. The point of this exploration wasn't to find the perfect architecture on paper. It was to find a solid, well-reasoned starting point that I can build on and adjust as reality pushes back.
 
