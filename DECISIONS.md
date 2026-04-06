@@ -338,3 +338,27 @@ Claude Code outputs extensive ANSI/VT100 escape sequences — colours, cursor mo
 `AnsiStripper` strips four escape sequence types (CSI, OSC, single-char VT100, bare CR) before passing text to `bridge.appendOutput()`. It is explicitly marked as a development workaround — it is removed when Plan 5b replaces NSTextView with WKWebView + xterm.js.
 
 The `AnsiStripper` pattern (`[A-Za-z0-9=>?]` for single-char escapes) is intentionally narrow to avoid stripping valid non-ANSI content.
+
+---
+
+## ADR-016: WKWebView works without entitlements under ad-hoc signing
+
+**Date:** 2026-04-06
+
+**Context:** Plan 5b adds a WKWebView terminal pane rendering xterm.js. WKWebView spawns a
+separate `WebContent` renderer process via XPC IPC. On macOS this can require specific
+entitlements in the code signature, particularly when using hardened runtime
+(`--options runtime`).
+
+**Decision:** No entitlements file is needed when signing with `codesign --sign -` (ad-hoc)
+without `--options runtime`. WKWebView's WebContent process spawns and renders correctly.
+`bundle.sh` keeps its current `codesign --sign - --force --deep` invocation unchanged.
+
+**Evidence:** Tested on macOS 15.x (Darwin 25.4.0), Apple Silicon (AArch64), native
+Quarkus image. App launched in bundle mode, WebContent XPC process spawned (confirmed via
+`ps`), no WebKit or sandbox errors in system log, app stable for 10+ seconds.
+
+**Consequences:** If hardened runtime is added in future (e.g. for notarisation), add
+`com.apple.security.cs.allow-jit` to an entitlements plist and pass it to `codesign`
+via `--entitlements`. Without this flag, WebKit's JIT compiler is blocked under hardened
+runtime and xterm.js will run in interpreter mode or fail entirely.
