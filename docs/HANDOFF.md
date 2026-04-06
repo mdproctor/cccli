@@ -1,46 +1,30 @@
 # Handover — 2026-04-06
 
-**Head commit:** `8d0fcf2` — docs: ADR-012 through ADR-015
+**Head commit:** `d3548bb` — docs: blog post 6 — .app bundle, test quality review, SIGTRAP diagnosis
 **Previous handover:** `git show HEAD~1:docs/HANDOFF.md`
 
 ## What Changed This Session
 
-- **Blog entries 001–005 revised** — aligned with updated mandatory-rules.md:
-  series subtitles removed, Date/Type metadata added, Claude introduced before
-  first "we" in every entry, consecutive "we" varied, paragraph density improved
-- **Blog files renamed** — `001-*.md` → `2026-04-04-NN-*.md` convention
-- **DESIGN.md created and committed** — reflects Plans 3–5 accurately (was
-  untracked and stale). NSTextField/NSTextView corrected, WKWebView dev/prod
-  split, Stop button, passive mode, C ABI, all app-core classes documented
-- **Design snapshot** — `docs/design-snapshots/2026-04-06-current-architecture.md`
-  (first snapshot ever for this project)
-- **ADR-012–015** — performSelectorOnMainThread:, PTY ECHO flag, InteractionDetector
-  timer approach, AnsiStripper dev-only pattern
-- **write-blog skill** updated with mandatory-rules reference and heading rules
-- **Knowledge garden** — two submissions: PTY ECHO gotcha, inject-session-instructions
-  technique
+- **Plan 6 (.app bundle) complete** — `@rpath` in native binary, `MacUIBridge.resolveDylibPath(executablePath)` auto-detects bundle path via `ProcessHandle`, `scripts/bundle.sh` assembles and signs, wired into `mvn install -Pnative`. App runs without `-Dcccli.dylib.path`.
+- **Test suite: 26 → 60 tests** — expanded across all 6 classes to solid. New high-value tests: `echoFlagIsDisabledAfterOpen`, `sendSigIntIsDeliveredToProcess` (via `waitpid(WNOHANG)` polling), `resizeSetsTerminalDimensions`, full `MacUIBridgeTest` (3 resolution branches). Filler tests retained but annotated.
+- **JVM crash diagnosed and fixed** — Panama FFM `write()`/`read()` on PTY slave fds corrupts downcall state on macOS AArch64; next test class hits SIGTRAP (exit 133). Fixed with `reuseForks=false` in surefire.
+- **Blog entry 006** — `blog/2026-04-06-01-packaging-test-quality.md`
+- **Garden submissions** — 3 new: Panama FFM PTY SIGTRAP crash, `waitpid(WNOHANG)` signal verification technique, surefire `reuseForks=false` for native code
 
 ## State Right Now
 
-Plans 1–5 complete. Native binary (~0.020s startup) spawns `claude` CLI in a PTY,
-routes ANSI-stripped output to NSTextView, NSTextField input, PASSIVE mode with
-Stop button working. All blog entries clean and style-guide compliant.
-
-**Plan 6 (.app bundle) is the immediate next step** — prerequisite for WKWebView
-and removes the `-Dcccli.dylib.path` workaround.
+Plan 6 complete. 60 tests passing. `.app` bundle builds and runs — no system property needed. Plan 5b (WKWebView + xterm.js) is now unblocked.
 
 ## Immediate Next Step
 
-Write Plan 6 implementation plan: `docs/superpowers/plans/2026-04-06-app-bundle.md`
+Write Plan 5b implementation plan: `docs/superpowers/plans/2026-04-06-wkwebview-xterm.md`
 
-Key tasks: `.app` directory structure, `@rpath` for dylib, `Info.plist`,
-codesigning, Maven exec plugin to assemble bundle post-native-image.
+Key tasks: enable WKWebView in ObjC bridge (swap NSTextView output pane), bundle xterm.js as a resource in `.app`, implement `myui_evaluate_javascript()` (currently a no-op), route PTY bytes via `evaluateJavaScript("window.term.write(...)")`, remove `AnsiStripper`.
 
 ## Open Questions / Blockers
 
-- WKWebView codesigning entitlements needed for WebKit subprocess IPC in .app
+- WKWebView codesigning entitlements — needed for WebKit subprocess IPC in `.app`; validate during Plan 5b
 - NSTextField → NSTextView for multi-line input (deferred, not blocking)
-- Four untracked plan files in `docs/superpowers/plans/` — not urgent
 
 ## References
 
@@ -49,7 +33,12 @@ codesigning, Maven exec plugin to assemble bundle post-native-image.
 | Design state | `docs/design-snapshots/2026-04-06-current-architecture.md` | `cat` that file |
 | Architecture decisions | `DECISIONS.md` (ADR-001 to ADR-015) | `cat` that file |
 | Current design | `DESIGN.md` | `cat` that file |
-| Latest blog entry | `blog/2026-04-05-01-pty-claude-passive.md` | `cat` that file |
+| Latest blog entry | `blog/2026-04-06-01-packaging-test-quality.md` | `cat` that file |
 | Technical gotchas | `~/claude/knowledge-garden/GARDEN.md` | index only; detail on demand |
 | AppKit pitfalls | `docs/APPKIT_PITFALLS.md` | read before any ObjC debugging |
 | Plans | `docs/superpowers/plans/` | `ls` to list |
+
+## Environment
+
+- `surefire reuseForks=false` now required in `app-core/pom.xml` — Panama FFM PTY I/O corrupts JVM state between test classes on macOS AArch64
+- Bundle at `app-macos/target/Claude Desktop CLI.app` after `mvn install -Pnative`
