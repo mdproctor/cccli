@@ -45,6 +45,9 @@ public class Main implements QuarkusApplication {
 
         pty.startReader(text -> {
             detector.onOutput();
+            // Raw bytes — no ANSI stripping. In WKWebView mode (bundle), xterm.js handles
+            // ANSI natively. In NSTextView dev mode, escape codes appear as literal chars
+            // which is acceptable (dev mode is transient, WKWebView is production).
             bridge.appendOutput(text);
         });
 

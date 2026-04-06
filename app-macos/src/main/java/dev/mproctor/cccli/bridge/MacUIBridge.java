@@ -141,7 +141,8 @@ public class MacUIBridge {
         MyMacUI_h.myui_set_passive_mode(passive ? 1 : 0);
     }
 
-    /** No-op in current implementation — retained for future WKWebView use. */
+    /** Evaluate a JavaScript string in the WKWebView terminal pane. Thread-safe.
+     *  No-op in dev mode (NSTextView). Only active when running inside a .app bundle. */
     public void evaluateJavaScript(String script) {
         try (Arena temp = Arena.ofConfined()) {
             MemorySegment scriptSeg = temp.allocateFrom(script != null ? script : "");

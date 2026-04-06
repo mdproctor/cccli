@@ -62,7 +62,8 @@ void myui_append_output(const char* text);
 /** Retained for ABI compatibility — no-op in current implementation. */
 void myui_load_html(const char* html);
 
-/** Retained for ABI compatibility — no-op in current implementation. */
+/** Evaluate a JavaScript string in the WKWebView terminal pane. Thread-safe.
+ *  No-op in dev mode (NSTextView). Only active when running inside a .app bundle. */
 void myui_evaluate_javascript(const char* script);
 
 /**
