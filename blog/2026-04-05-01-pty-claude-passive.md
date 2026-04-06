@@ -7,7 +7,7 @@
 
 ## What we were trying to achieve: spawning claude in a PTY
 
-After Plan 2 left us with a working split-pane UI — NSTextField input, NSTextView output — the obvious next step was the hard part: spawn the real `claude` binary in a PTY, pipe its output to the display pane, and block input while it's thinking. Plans 3, 4, and 5 as one connected arc.
+Working with Claude across Plans 3, 4, and 5, we took the split-pane UI from Plan 2 and connected it to the real `claude` CLI — PTY subprocess, ANSI stripping, passive mode, and a Stop button. Three plans, one connected arc.
 
 ## What we believed going in: PTY was the hard part
 
@@ -45,7 +45,9 @@ The `claude` binary lives in `~/.local/bin/claude`. In a native binary with no l
 
 ### Passive mode and the Stop button
 
-I asked Claude to build a timer-based interaction detector: any PTY output → PASSIVE (input disabled, Stop button appears); 800ms of silence → FREE_TEXT (input re-enabled). The Stop button sends SIGINT and calls `forceIdle()` immediately — you don't wait for the quiet timer. The ObjC bridge gained `myui_set_passive_mode(int)`, implemented with `performSelectorOnMainThread:` rather than `dispatch_async`. Claude also had to extend `myui_start()` with a seventh callback for the Stop button. My plan had a C error I'd missed — `extern` on a `static` global inside an ObjC method, which clang rejects outright. Claude didn't ask about it; it just noted the issue in its report and used a static forward declaration instead. I would have hit it at compile time either way, but I didn't have to.
+I asked Claude to build a timer-based interaction detector: any PTY output → PASSIVE (input disabled, Stop button appears); 800ms of silence → FREE_TEXT (input re-enabled). The Stop button sends SIGINT and calls `forceIdle()` immediately — you don't wait for the quiet timer. The ObjC bridge gained `myui_set_passive_mode(int)`, implemented with `performSelectorOnMainThread:` rather than `dispatch_async`.
+
+Claude also had to extend `myui_start()` with a seventh callback for the Stop button. My plan had a C error I'd missed — `extern` on a `static` global inside an ObjC method, which clang rejects outright. Claude didn't ask about it; it just noted the issue in its report and used a static forward declaration instead. I would have hit it at compile time either way, but I didn't have to.
 
 Plans 4 and 5's native images built first try. Plan 3 needed two fixes: `--initialize-at-run-time` for `PosixLibrary`, and a wrong parameter count in the `posix_spawn` downcall. That last one was my mistake in the plan spec — I'd written five `void*` instead of six. Claude hit `MissingForeignRegistrationError`, which names the function but says nothing about what's wrong with the signature. It came back: "The downcall has five params but `posix_spawn` takes six — pid_t\*, path, file_actions, attrp, argv[], envp[]." Fixed.
 
