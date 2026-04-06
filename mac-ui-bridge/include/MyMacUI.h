@@ -65,6 +65,12 @@ void myui_load_html(const char* html);
 /** Retained for ABI compatibility — no-op in current implementation. */
 void myui_evaluate_javascript(const char* script);
 
+/**
+ * Returns 1 if running inside a proper .app bundle with xterm resources present,
+ * 0 otherwise (JVM dev mode). Used by Java to decide whether to strip ANSI sequences.
+ */
+int myui_is_bundle(void);
+
 #ifdef __cplusplus
 }
 #endif
