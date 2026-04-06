@@ -1,10 +1,11 @@
 # Seven Things That Don't Work in AppKit (And What Does)
 
-*Part 4 of an evolving series on building a native macOS app with Java, Panama FFM, and Claude.*
+**Date:** 2026-04-04
+**Type:** phase-update
 
 ---
 
-Building the split-pane UI for Claude Desktop CLI took one session and produced seven distinct bugs. None of them crashed the app. Most of them produced no error at all. They just silently didn't work — which, it turns out, is the hardest kind of bug to fix.
+Building the split-pane UI for Claude Desktop CLI took one session with Claude and produced seven distinct bugs. None of them crashed the app. Most of them produced no error at all. They just silently didn't work — which, it turns out, is the hardest kind of bug to fix.
 
 Here's a quick map of the journey:
 
@@ -246,7 +247,7 @@ Seven bugs. All silent except one. Most of them variants of the same threading p
 
 The pattern we used: add the right NSLog in the right place, strip back to the minimum test case, verify one assumption at a time. Most bugs resolved in minutes once the diagnostic information was in hand. The GCD serialisation bug was the exception — it took a proper understanding of how `[NSApp run]` interacts with the GCD main queue before any fix made sense.
 
-What this collaboration gave me wasn't just speed. It was a partner who could hold the full context — the threading model, the AppKit behaviour, the Panama FFM constraints, the JVM vs native image differences — and reason across all of them simultaneously. When the dispatch block turned out to be the thread running through every other symptom, that was a cross-cutting insight that would have taken me much longer to reach alone.
+What working with Claude gave me wasn't just speed. Claude could hold the full context — the threading model, the AppKit behaviour, the Panama FFM constraints, the JVM vs native image differences — and reason across all of them simultaneously. When the dispatch block turned out to be the thread running through every other symptom, that was a cross-cutting insight that would have taken me much longer to reach alone.
 
 ---
 
