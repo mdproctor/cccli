@@ -8,6 +8,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Consumer;
 
@@ -28,11 +29,45 @@ public class MacUIBridge {
 
     @PostConstruct
     void loadDylib() {
-        String pathStr = System.getProperty(DYLIB_PATH_PROP, DYLIB_PATH_DEFAULT);
+        String pathStr = resolveDylibPath();
         Path path = Path.of(pathStr).toAbsolutePath();
         Log.infof("Loading dylib from: %s", path);
         System.load(path.toString());
         Log.info("libMyMacUI.dylib loaded successfully");
+    }
+
+    /**
+     * Resolves the path to libMyMacUI.dylib in priority order:
+     *
+     * 1. Explicit system property (dev mode: -Dcccli.dylib.path=...)
+     * 2. .app bundle path: executable is at Contents/MacOS/<name>,
+     *    dylib is at Contents/Frameworks/libMyMacUI.dylib
+     * 3. Dev mode default: ../mac-ui-bridge/build/libMyMacUI.dylib
+     */
+    private String resolveDylibPath() {
+        // 1. Explicit override
+        String prop = System.getProperty(DYLIB_PATH_PROP);
+        if (prop != null) return prop;
+
+        // 2. .app bundle detection via current executable path
+        // exe = .../Contents/MacOS/claude-desktop
+        // exe.getParent() = .../Contents/MacOS
+        // exe.getParent().getParent() = .../Contents
+        String cmd = ProcessHandle.current().info().command().orElse("");
+        if (!cmd.isEmpty()) {
+            Path exe = Path.of(cmd).toAbsolutePath();
+            if (exe.getParent() != null && exe.getParent().getParent() != null) {
+                Path bundleDylib = exe.getParent().getParent()
+                        .resolve("Frameworks/libMyMacUI.dylib");
+                if (Files.exists(bundleDylib)) {
+                    Log.infof("Detected .app bundle — using bundle dylib at: %s", bundleDylib);
+                    return bundleDylib.toString();
+                }
+            }
+        }
+
+        // 3. Dev mode default (relative path from app-macos working dir)
+        return DYLIB_PATH_DEFAULT;
     }
 
     /**
