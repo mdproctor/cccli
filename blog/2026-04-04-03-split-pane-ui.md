@@ -1,6 +1,7 @@
 # The Split Pane: Seven Bugs and What They Taught Us
 
-*Part 3 of an evolving series.*
+**Date:** 2026-04-04
+**Type:** phase-update
 
 ---
 
@@ -12,9 +13,11 @@ Prove the Java ↔ native UI communication pipeline end-to-end: type in a native
 
 ## Bug 1: NSSplitView blocks keyboard events
 
+Claude and I had seven bugs to get through before the pipeline worked end to end.
+
 I planned to use NSSplitView to split the window into terminal (top) and input (bottom) panes. We set it as `window.contentView`. Result: no mouse events, no keyboard events, nothing reached any subview.
 
-We found the fix by stripping everything back to the absolute minimum — an NSTextField added directly to the existing `window.contentView` without replacing it. That worked immediately. The rule: **never replace `window.contentView`**. Add views to it.
+The fix was to strip everything back to the absolute minimum — an NSTextField added directly to the existing `window.contentView` without replacing it. That worked immediately. The rule: **never replace `window.contentView`**. Add views to it.
 
 ---
 
