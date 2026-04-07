@@ -24,10 +24,22 @@
         "method": "onTerminalResized",
         "returnType": "void",
         "parameterTypes": ["jint", "jint"]
+      },
+      {
+        "class": "dev.mproctor.cccli.bridge.Callbacks",
+        "method": "onTextChanged",
+        "returnType": "void",
+        "parameterTypes": ["void*"]
+      },
+      {
+        "class": "dev.mproctor.cccli.bridge.Callbacks",
+        "method": "onKeyPressed",
+        "returnType": "void",
+        "parameterTypes": ["void*"]
       }
     ],
     "downcalls": [
-      {"returnType": "jlong", "parameterTypes": ["void*", "jint", "jint", "void*", "void*", "void*", "void*"]},
+      {"returnType": "jlong", "parameterTypes": ["void*", "jint", "jint", "void*", "void*", "void*", "void*", "void*", "void*"]},
       {"returnType": "void",  "parameterTypes": ["void*"]},
       {"returnType": "void",  "parameterTypes": []},
       {"returnType": "void",  "parameterTypes": ["jint"]},
