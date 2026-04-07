@@ -84,7 +84,9 @@ public final class PosixLibrary {
             FunctionDescriptor.of(ValueLayout.JAVA_INT,
                     ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
 
-    /** int open(const char* path, int oflag) */
+    /** int open(const char* path, int oflag)
+     * open(2) is variadic but we only use the two-argument form (no O_CREAT mode).
+     * firstVariadicArg is not needed because we never pass a third argument. */
     private static final MethodHandle OPEN = LINKER.downcallHandle(
             LIBC.find("open").orElseThrow(),
             FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));

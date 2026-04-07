@@ -112,7 +112,10 @@ public class PtyProcess {
      *
      * @param command  e.g. new String[]{"/bin/cat"} or new String[]{"/usr/bin/tput", "cols"}
      * @param env      null to inherit the parent process environment, or an array of
-     *                 "KEY=VALUE" strings to pass as the subprocess environment
+     *                 "KEY=VALUE" strings for the subprocess environment.
+     *                 WARNING: non-null env is a full replacement — the child receives
+     *                 only the entries in this array. It is NOT merged with the parent
+     *                 environment. Pass null to inherit all parent env vars.
      */
     public void spawn(String[] command, String[] env) {
         if (masterFd < 0) throw new IllegalStateException("call open() first");
