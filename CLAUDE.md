@@ -45,6 +45,10 @@ mvn test
 
 Note: Requires JDK 26 active via jenv. Native builds still require GraalVM 25 (`jenv shell graalvm64-25`).
 
+## Writing Style Guide
+
+**The writing style guide at `~/claude-workspace/writing-styles/blog-technical.md` is mandatory for all blog and diary entries.** Load it in full before drafting. Complete the pre-draft voice classification (I / we / Claude-named) before generating any prose.
+
 ## Work Tracking
 
 **Issue tracking:** enabled
