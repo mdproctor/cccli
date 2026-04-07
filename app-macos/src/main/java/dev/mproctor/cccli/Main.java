@@ -37,6 +37,13 @@ public class Main implements QuarkusApplication {
         pty.open();
         pty.spawn(new String[]{claudePath.toString()});
 
+        // Resize callback: fired by WKScriptMessageHandler when xterm.js reports a new grid size.
+        // Note: FitAddon reports (cols, rows), but pty.resize takes (rows, cols).
+        bridge.setResizeCallback((cols, rows) -> {
+            Log.debugf("Terminal resized: %d cols × %d rows", cols, rows);
+            pty.resize(rows, cols);
+        });
+
         // Detector: bridge.setPassiveMode() is called from the detector's
         // scheduler thread — safe because myui_set_passive_mode() dispatches
         // to the AppKit main thread via performSelectorOnMainThread:.
@@ -50,9 +57,6 @@ public class Main implements QuarkusApplication {
             // which is acceptable (dev mode is transient, WKWebView is production).
             bridge.appendOutput(text);
         });
-
-        // Plan 5 wires resize to actual window dimensions.
-        pty.resize(24, 120);
 
         Log.info("Starting Claude Desktop CLI...");
         bridge.start("Claude Desktop CLI", 900, 600,
