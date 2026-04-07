@@ -102,12 +102,16 @@ static WindowResizedCallback  resizedCallback    = NULL; /* registered via myui_
 /* WKScriptMessageHandler — receives {cols, rows} from term.onResize in JS */
 - (void)userContentController:(WKUserContentController *)userContentController
       didReceiveScriptMessage:(WKScriptMessage *)message {
-    if ([message.name isEqualToString:@"termSize"]) {
-        NSDictionary *body = message.body;
+    if ([message.name isEqualToString:@"termSize"] &&
+            [message.body isKindOfClass:[NSDictionary class]]) {
+        NSDictionary *body = (NSDictionary *)message.body;
         int cols = [body[@"cols"] intValue];
         int rows = [body[@"rows"] intValue];
-        WindowResizedCallback cb = resizedCallback;
-        if (cb) cb(cols, rows);
+        /* Guard against FitAddon reporting (0,0) during page teardown or zero-size container */
+        if (cols > 0 && rows > 0) {
+            WindowResizedCallback cb = resizedCallback;
+            if (cb) cb(cols, rows);
+        }
     }
 }
 

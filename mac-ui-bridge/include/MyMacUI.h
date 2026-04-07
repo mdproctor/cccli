@@ -23,7 +23,7 @@ typedef void (*StopClickedCallback)(void);
 typedef void (*WindowResizedCallback)(int cols, int rows);
 
 /** Register the callback invoked when xterm.js posts a termSize message via WKScriptMessageHandler.
- *  Thread-safe. Call before myui_start(). NULL to unregister. */
+ *  Call before myui_start(). Not concurrency-safe after that. NULL to unregister. */
 void myui_set_resize_callback(WindowResizedCallback cb);
 
 /** Initialize NSApplication. Must be called first, on the main thread. */
