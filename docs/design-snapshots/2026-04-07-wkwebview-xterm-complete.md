@@ -3,7 +3,7 @@
 **Date:** 2026-04-07
 **Topic:** Architecture after Plan 5b (WKWebView + xterm.js terminal renderer)
 **Supersedes:** [2026-04-06-current-architecture](2026-04-06-current-architecture.md)
-**Superseded by:** *(leave blank — filled in if this snapshot is later superseded)*
+**Superseded by:** [2026-04-07-terminal-resize-complete](2026-04-07-terminal-resize-complete.md)
 
 ---
 
