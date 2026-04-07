@@ -93,20 +93,27 @@ public class MacUIBridge {
      * @param initialHtml     HTML loaded into the terminal WKWebView at startup
      * @param onClosed        called when the user closes the window
      * @param onTextSubmitted called when the user presses Enter in the input pane
+     * @param onTextChanged   called whenever the NSTextField content changes
+     * @param onKeyPressed    called for every key event when slash mode is active
      */
     public long start(String title, int width, int height,
                       String initialHtml,
                       Runnable onClosed,
                       Consumer<String> onTextSubmitted,
-                      Runnable onStop) {
+                      Runnable onStop,
+                      Consumer<String> onTextChanged,
+                      Consumer<String> onKeyPressed) {
         try (Arena temp = Arena.ofConfined()) {
-            MemorySegment titleSeg    = temp.allocateFrom(title != null ? title : "");
-            MemorySegment htmlSeg     = temp.allocateFrom(initialHtml != null ? initialHtml : "");
-            MemorySegment closedCb    = Callbacks.createWindowClosedCallback(arena, onClosed);
-            MemorySegment submittedCb = Callbacks.createTextSubmittedCallback(arena, onTextSubmitted);
-            MemorySegment stopCb      = Callbacks.createStopClickedCallback(arena, onStop);
+            MemorySegment titleSeg      = temp.allocateFrom(title != null ? title : "");
+            MemorySegment htmlSeg       = temp.allocateFrom(initialHtml != null ? initialHtml : "");
+            MemorySegment closedCb      = Callbacks.createWindowClosedCallback(arena, onClosed);
+            MemorySegment submittedCb   = Callbacks.createTextSubmittedCallback(arena, onTextSubmitted);
+            MemorySegment stopCb        = Callbacks.createStopClickedCallback(arena, onStop);
+            MemorySegment textChangedCb = Callbacks.createTextChangedCallback(arena, onTextChanged);
+            MemorySegment keyPressedCb  = Callbacks.createKeyPressedCallback(arena, onKeyPressed);
             return MyMacUI_h.myui_start(titleSeg, width, height,
-                                        htmlSeg, closedCb, submittedCb, stopCb);
+                                        htmlSeg, closedCb, submittedCb, stopCb,
+                                        textChangedCb, keyPressedCb);
         }
     }
 
@@ -140,6 +147,25 @@ public class MacUIBridge {
      */
     public void setPassiveMode(boolean passive) {
         MyMacUI_h.myui_set_passive_mode(passive ? 1 : 0);
+    }
+
+    /**
+     * Enable or disable slash passthrough mode. Thread-safe.
+     * When active, NSEvent monitor intercepts all key events and routes
+     * them via KeyPressedCallback.
+     */
+    public void setSlashMode(boolean active) {
+        MyMacUI_h.myui_set_slash_mode(active ? 1 : 0);
+    }
+
+    /**
+     * Set the NSTextField content. Pass "" to clear. Thread-safe.
+     */
+    public void setInputText(String text) {
+        try (Arena temp = Arena.ofConfined()) {
+            MemorySegment seg = temp.allocateFrom(text != null ? text : "");
+            MyMacUI_h.myui_set_input_text(seg);
+        }
     }
 
     /** Evaluate a JavaScript string in the WKWebView terminal pane. Thread-safe.
