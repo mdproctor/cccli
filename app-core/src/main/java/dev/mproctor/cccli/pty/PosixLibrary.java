@@ -23,6 +23,9 @@ public final class PosixLibrary {
     /** ioctl(2) request for setting terminal window size */
     public static final long TIOCSWINSZ = 0x80087467L;
 
+    /** ioctl(2) request for reading terminal window size — macOS AArch64 */
+    public static final long TIOCGWINSZ = 0x40087468L;
+
     /** Signal numbers */
     public static final int SIGTERM = 15;
     public static final int SIGKILL = 9;
@@ -244,6 +247,24 @@ public final class PosixLibrary {
     public static int ioctl(int fd, long request, MemorySegment arg) {
         try { return (int) IOCTL.invokeExact(fd, request, arg); }
         catch (Throwable t) { throw new RuntimeException("ioctl", t); }
+    }
+
+    /**
+     * Reads the terminal window size via TIOCGWINSZ.
+     * Returns int[]{rows, cols} where [0]=rows and [1]=cols, or null if ioctl fails.
+     * Requires an active subprocess holding the slave open — macOS returns zeroes
+     * for disconnected PTYs (no subprocess).
+     */
+    public static int[] ioctlGetWinsize(int fd) {
+        try (Arena temp = Arena.ofConfined()) {
+            // struct winsize { unsigned short ws_row, ws_col, ws_xpixel, ws_ypixel; }
+            MemorySegment winsize = temp.allocate(8);
+            int ret = ioctl(fd, TIOCGWINSZ, winsize);
+            if (ret != 0) return null;
+            int rows = Short.toUnsignedInt(winsize.get(ValueLayout.JAVA_SHORT, 0));
+            int cols = Short.toUnsignedInt(winsize.get(ValueLayout.JAVA_SHORT, 2));
+            return new int[]{rows, cols};
+        }
     }
 
     public static int spawnFileActionsInit(MemorySegment fileActions) {
