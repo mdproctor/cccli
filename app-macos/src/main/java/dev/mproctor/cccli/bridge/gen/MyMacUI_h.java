@@ -1320,6 +1320,65 @@ public class MyMacUI_h {
         }
     }
 
+    private static class myui_set_resize_callback {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
+            MyMacUI_h.C_POINTER   /* WindowResizedCallback cb */
+        );
+
+        public static final MemorySegment ADDR =
+            MyMacUI_h.findOrThrow("myui_set_resize_callback");
+
+        public static final MethodHandle HANDLE =
+            Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * void myui_set_resize_callback(WindowResizedCallback cb)
+     * }
+     */
+    public static FunctionDescriptor myui_set_resize_callback$descriptor() {
+        return myui_set_resize_callback.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * void myui_set_resize_callback(WindowResizedCallback cb)
+     * }
+     */
+    public static MethodHandle myui_set_resize_callback$handle() {
+        return myui_set_resize_callback.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * void myui_set_resize_callback(WindowResizedCallback cb)
+     * }
+     */
+    public static MemorySegment myui_set_resize_callback$address() {
+        return myui_set_resize_callback.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * void myui_set_resize_callback(WindowResizedCallback cb)
+     * }
+     */
+    public static void myui_set_resize_callback(MemorySegment cb) {
+        var mh$ = myui_set_resize_callback.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("myui_set_resize_callback", cb);
+            }
+            mh$.invokeExact(cb);
+        } catch (Throwable ex$) {
+            throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     /**
      * {@snippet lang=c :
      * #define __DARWIN_SUF_EXTSN "$DARWIN_EXTSN"
