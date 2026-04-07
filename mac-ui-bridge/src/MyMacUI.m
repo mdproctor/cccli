@@ -27,11 +27,15 @@ static BOOL                   pageReady          = NO;
 static NSMutableArray        *pendingOutput      = nil;  /* buffered before page ready */
 static NSString              *pendingInitialText = nil;  /* initial text for xterm.js  */
 static WindowResizedCallback  resizedCallback    = NULL; /* registered via myui_set_resize_callback */
+static TextChangedCallback    textChangedCallback  = NULL;
+static KeyPressedCallback     keyPressedCallback   = NULL;
+static BOOL                   slashModeActive      = NO;
 
 /* ── AppDelegate ─────────────────────────────────────────────────────────── */
 
 @interface CCCAppDelegate : NSObject
-    <NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKScriptMessageHandler>
+    <NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate,
+     WKScriptMessageHandler, NSTextFieldDelegate>
 @property (nonatomic, assign) WindowClosedCallback   onClosed;
 @property (nonatomic, assign) TextSubmittedCallback  onTextSubmitted;
 @property (nonatomic, assign) StopClickedCallback    onStop;
@@ -39,6 +43,8 @@ static WindowResizedCallback  resizedCallback    = NULL; /* registered via myui_
 - (void)appendToOutput:(NSString *)str;
 - (void)applyPassiveMode:(NSNumber *)value;
 - (void)evaluateJS:(NSString *)js;
+- (void)applySlashMode:(NSNumber *)value;
+- (void)applyInputText:(NSString *)text;
 @end
 
 @implementation CCCAppDelegate
@@ -70,6 +76,25 @@ static WindowResizedCallback  resizedCallback    = NULL; /* registered via myui_
     if (!passive) {
         NSWindow *w = theInputField.window;
         if (w) [w makeFirstResponder:theInputField];
+    }
+}
+
+- (void)applySlashMode:(NSNumber *)value {
+    slashModeActive = value.boolValue;
+}
+
+- (void)applyInputText:(NSString *)text {
+    if (theInputField) {
+        [theInputField setStringValue:text];
+    }
+}
+
+/* NSTextFieldDelegate — fires on every keystroke that changes field content.
+ * Already on AppKit main thread — update synchronously. (APPKIT_PITFALLS.md §5) */
+- (void)controlTextDidChange:(NSNotification *)notification {
+    NSTextField *field = notification.object;
+    if (field == theInputField && textChangedCallback) {
+        textChangedCallback(field.stringValue.UTF8String);
     }
 }
 
@@ -286,6 +311,7 @@ static void setupUI(NSWindow *window,
     inputField.target = appDelegate;
     inputField.action = @selector(textFieldSubmit:);
     [root addSubview:inputField];
+    inputField.delegate = appDelegate;
     theInputField = inputField;
 
     /* ── Stop button (overlaid right of input, hidden by default) ──────── */
@@ -304,6 +330,35 @@ static void setupUI(NSWindow *window,
     appDelegate.inputField      = inputField;
     appDelegate.onTextSubmitted = onTextSubmitted;
     appDelegate.onStop          = onStop;
+
+    /* NSEvent local monitor — installed once at startup, never removed.
+     * Active only when slashModeActive=YES. Converts AppKit function key codes
+     * (arrows) to ANSI escape sequences before routing to KeyPressedCallback.
+     * Returns nil to consume the event (NSTextField never sees it). */
+    [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown
+                                          handler:^NSEvent*(NSEvent *event) {
+        if (!slashModeActive) return event;
+
+        NSString *chars = event.characters;
+        if (!chars || chars.length == 0) return event;
+
+        NSString *toSend = chars;
+        if (chars.length == 1) {
+            unichar ch = [chars characterAtIndex:0];
+            switch (ch) {
+                case NSUpArrowFunctionKey:    toSend = @"\x1b[A"; break;
+                case NSDownArrowFunctionKey:  toSend = @"\x1b[B"; break;
+                case NSRightArrowFunctionKey: toSend = @"\x1b[C"; break;
+                case NSLeftArrowFunctionKey:  toSend = @"\x1b[D"; break;
+                default: break;
+            }
+        }
+
+        if (keyPressedCallback) {
+            keyPressedCallback(toSend.UTF8String);
+        }
+        return nil;
+    }];
 }
 
 /* ── C ABI implementation ─────────────────────────────────────────────────── */
@@ -358,6 +413,27 @@ void myui_set_passive_mode(int passive) {
                               waitUntilDone:NO];
 }
 
+void myui_set_slash_mode(int active) {
+    if ([NSThread isMainThread]) {
+        slashModeActive = (BOOL)active;
+    } else {
+        [appDelegate performSelectorOnMainThread:@selector(applySlashMode:)
+                                     withObject:@((BOOL)active)
+                                  waitUntilDone:NO];
+    }
+}
+
+void myui_set_input_text(const char *text) {
+    NSString *str = text ? [NSString stringWithUTF8String:text] : @"";
+    if ([NSThread isMainThread]) {
+        if (theInputField) [theInputField setStringValue:str];
+    } else {
+        [appDelegate performSelectorOnMainThread:@selector(applyInputText:)
+                                     withObject:str
+                                  waitUntilDone:NO];
+    }
+}
+
 void myui_append_output(const char *text) {
     if (!text) return;
     NSString *str = [NSString stringWithUTF8String:text];
@@ -393,9 +469,13 @@ intptr_t myui_start(const char *title,
                     int width,
                     int height,
                     const char *initialHtml,
-                    WindowClosedCallback onClosed,
+                    WindowClosedCallback  onClosed,
                     TextSubmittedCallback onTextSubmitted,
-                    StopClickedCallback onStop) {
+                    StopClickedCallback   onStop,
+                    TextChangedCallback   onTextChanged,
+                    KeyPressedCallback    onKeyPressed) {
+    textChangedCallback = onTextChanged;
+    keyPressedCallback  = onKeyPressed;
 
     __block intptr_t windowHandle = 0;
     char *titleCopy = strdup(title       ? title       : "");
