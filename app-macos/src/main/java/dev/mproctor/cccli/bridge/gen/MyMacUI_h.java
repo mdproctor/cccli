@@ -1058,12 +1058,71 @@ public class MyMacUI_h {
         }
     }
 
+    private static class myui_set_slash_mode {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
+            MyMacUI_h.C_INT
+        );
+
+        public static final MemorySegment ADDR = MyMacUI_h.findOrThrow("myui_set_slash_mode");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * void myui_set_slash_mode(int active)
+     * }
+     */
+    public static FunctionDescriptor myui_set_slash_mode$descriptor() {
+        return myui_set_slash_mode.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * void myui_set_slash_mode(int active)
+     * }
+     */
+    public static MethodHandle myui_set_slash_mode$handle() {
+        return myui_set_slash_mode.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * void myui_set_slash_mode(int active)
+     * }
+     */
+    public static MemorySegment myui_set_slash_mode$address() {
+        return myui_set_slash_mode.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * void myui_set_slash_mode(int active)
+     * }
+     */
+    public static void myui_set_slash_mode(int active) {
+        var mh$ = myui_set_slash_mode.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("myui_set_slash_mode", active);
+            }
+            mh$.invokeExact(active);
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
     private static class myui_start {
         public static final FunctionDescriptor DESC = FunctionDescriptor.of(
             MyMacUI_h.C_LONG,
             MyMacUI_h.C_POINTER,
             MyMacUI_h.C_INT,
             MyMacUI_h.C_INT,
+            MyMacUI_h.C_POINTER,
+            MyMacUI_h.C_POINTER,
             MyMacUI_h.C_POINTER,
             MyMacUI_h.C_POINTER,
             MyMacUI_h.C_POINTER,
@@ -1078,7 +1137,7 @@ public class MyMacUI_h {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * intptr_t myui_start(const char *title, int width, int height, const char *initialHtml, WindowClosedCallback onClosed, TextSubmittedCallback onTextSubmitted, StopClickedCallback onStop)
+     * intptr_t myui_start(const char *title, int width, int height, const char *initialHtml, WindowClosedCallback onClosed, TextSubmittedCallback onTextSubmitted, StopClickedCallback onStop, TextChangedCallback onTextChanged, KeyPressedCallback onKeyPressed)
      * }
      */
     public static FunctionDescriptor myui_start$descriptor() {
@@ -1088,7 +1147,7 @@ public class MyMacUI_h {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * intptr_t myui_start(const char *title, int width, int height, const char *initialHtml, WindowClosedCallback onClosed, TextSubmittedCallback onTextSubmitted, StopClickedCallback onStop)
+     * intptr_t myui_start(const char *title, int width, int height, const char *initialHtml, WindowClosedCallback onClosed, TextSubmittedCallback onTextSubmitted, StopClickedCallback onStop, TextChangedCallback onTextChanged, KeyPressedCallback onKeyPressed)
      * }
      */
     public static MethodHandle myui_start$handle() {
@@ -1098,7 +1157,7 @@ public class MyMacUI_h {
     /**
      * Address for:
      * {@snippet lang=c :
-     * intptr_t myui_start(const char *title, int width, int height, const char *initialHtml, WindowClosedCallback onClosed, TextSubmittedCallback onTextSubmitted, StopClickedCallback onStop)
+     * intptr_t myui_start(const char *title, int width, int height, const char *initialHtml, WindowClosedCallback onClosed, TextSubmittedCallback onTextSubmitted, StopClickedCallback onStop, TextChangedCallback onTextChanged, KeyPressedCallback onKeyPressed)
      * }
      */
     public static MemorySegment myui_start$address() {
@@ -1107,16 +1166,16 @@ public class MyMacUI_h {
 
     /**
      * {@snippet lang=c :
-     * intptr_t myui_start(const char *title, int width, int height, const char *initialHtml, WindowClosedCallback onClosed, TextSubmittedCallback onTextSubmitted, StopClickedCallback onStop)
+     * intptr_t myui_start(const char *title, int width, int height, const char *initialHtml, WindowClosedCallback onClosed, TextSubmittedCallback onTextSubmitted, StopClickedCallback onStop, TextChangedCallback onTextChanged, KeyPressedCallback onKeyPressed)
      * }
      */
-    public static long myui_start(MemorySegment title, int width, int height, MemorySegment initialHtml, MemorySegment onClosed, MemorySegment onTextSubmitted, MemorySegment onStop) {
+    public static long myui_start(MemorySegment title, int width, int height, MemorySegment initialHtml, MemorySegment onClosed, MemorySegment onTextSubmitted, MemorySegment onStop, MemorySegment onTextChanged, MemorySegment onKeyPressed) {
         var mh$ = myui_start.HANDLE;
         try {
             if (TRACE_DOWNCALLS) {
-                traceDowncall("myui_start", title, width, height, initialHtml, onClosed, onTextSubmitted, onStop);
+                traceDowncall("myui_start", title, width, height, initialHtml, onClosed, onTextSubmitted, onStop, onTextChanged, onKeyPressed);
             }
-            return (long)mh$.invokeExact(title, width, height, initialHtml, onClosed, onTextSubmitted, onStop);
+            return (long)mh$.invokeExact(title, width, height, initialHtml, onClosed, onTextSubmitted, onStop, onTextChanged, onKeyPressed);
         } catch (Throwable ex$) {
            throw new AssertionError("should not reach here", ex$);
         }
@@ -1288,6 +1347,63 @@ public class MyMacUI_h {
                 traceDowncall("myui_evaluate_javascript", script);
             }
             mh$.invokeExact(script);
+        } catch (Throwable ex$) {
+           throw new AssertionError("should not reach here", ex$);
+        }
+    }
+
+    private static class myui_set_input_text {
+        public static final FunctionDescriptor DESC = FunctionDescriptor.ofVoid(
+            MyMacUI_h.C_POINTER
+        );
+
+        public static final MemorySegment ADDR = MyMacUI_h.findOrThrow("myui_set_input_text");
+
+        public static final MethodHandle HANDLE = Linker.nativeLinker().downcallHandle(ADDR, DESC);
+    }
+
+    /**
+     * Function descriptor for:
+     * {@snippet lang=c :
+     * void myui_set_input_text(const char *text)
+     * }
+     */
+    public static FunctionDescriptor myui_set_input_text$descriptor() {
+        return myui_set_input_text.DESC;
+    }
+
+    /**
+     * Downcall method handle for:
+     * {@snippet lang=c :
+     * void myui_set_input_text(const char *text)
+     * }
+     */
+    public static MethodHandle myui_set_input_text$handle() {
+        return myui_set_input_text.HANDLE;
+    }
+
+    /**
+     * Address for:
+     * {@snippet lang=c :
+     * void myui_set_input_text(const char *text)
+     * }
+     */
+    public static MemorySegment myui_set_input_text$address() {
+        return myui_set_input_text.ADDR;
+    }
+
+    /**
+     * {@snippet lang=c :
+     * void myui_set_input_text(const char *text)
+     * }
+     */
+    public static void myui_set_input_text(MemorySegment text) {
+        var mh$ = myui_set_input_text.HANDLE;
+        try {
+            if (TRACE_DOWNCALLS) {
+                traceDowncall("myui_set_input_text", text);
+            }
+            mh$.invokeExact(text);
         } catch (Throwable ex$) {
            throw new AssertionError("should not reach here", ex$);
         }

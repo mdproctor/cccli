@@ -22,6 +22,14 @@ typedef void (*StopClickedCallback)(void);
  *  cols and rows are the new character grid dimensions. */
 typedef void (*WindowResizedCallback)(int cols, int rows);
 
+/** Fired when NSTextField content changes (each keystroke that alters the field).
+ *  text is a null-terminated UTF-8 string of the full current field contents. */
+typedef void (*TextChangedCallback)(const char* text);
+
+/** Fired for each key event intercepted in slash passthrough mode.
+ *  chars is a null-terminated UTF-8 string (may be multi-byte for escape sequences). */
+typedef void (*KeyPressedCallback)(const char* chars);
+
 /** Register the callback invoked when xterm.js posts a termSize message via WKScriptMessageHandler.
  *  Call before myui_start(). Not concurrency-safe after that. NULL to unregister. */
 void myui_set_resize_callback(WindowResizedCallback cb);
@@ -50,6 +58,20 @@ void myui_terminate(void);
 void myui_set_passive_mode(int passive);
 
 /**
+ * Enable (active=1) or disable (active=0) slash passthrough mode.
+ * When active, an NSEvent local monitor intercepts all key events and
+ * routes them via KeyPressedCallback instead of the NSTextField.
+ * Thread-safe — dispatches to AppKit main thread internally.
+ */
+void myui_set_slash_mode(int active);
+
+/**
+ * Set the NSTextField string value. Pass "" to clear the field.
+ * Thread-safe — dispatches to AppKit main thread internally.
+ */
+void myui_set_input_text(const char* text);
+
+/**
  * Full entry point. Creates the window with a split pane, loads initial text,
  * starts the AppKit event loop, and blocks until the application terminates.
  *
@@ -60,9 +82,11 @@ intptr_t myui_start(const char* title,
                     int width,
                     int height,
                     const char* initialHtml,
-                    WindowClosedCallback onClosed,
-                    TextSubmittedCallback onTextSubmitted,
-                    StopClickedCallback onStop);
+                    WindowClosedCallback   onClosed,
+                    TextSubmittedCallback  onTextSubmitted,
+                    StopClickedCallback    onStop,
+                    TextChangedCallback    onTextChanged,
+                    KeyPressedCallback     onKeyPressed);
 
 /** Append plain text to the output pane. Thread-safe. */
 void myui_append_output(const char* text);

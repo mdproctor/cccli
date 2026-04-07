@@ -34,6 +34,8 @@ public final class Callbacks {
     private static volatile Consumer<String>             textSubmittedHandler;
     private static volatile Runnable                     stopClickedHandler;
     private static volatile BiConsumer<Integer, Integer> windowResizedHandler;
+    private static volatile Consumer<String> textChangedHandler;
+    private static volatile Consumer<String> keyPressedHandler;
 
     /** Creates a void(*)(void) upcall stub that calls handler when the window closes. */
     public static MemorySegment createWindowClosedCallback(Arena arena, Runnable handler) {
@@ -119,6 +121,50 @@ public final class Callbacks {
     public static void onTerminalResized(int cols, int rows) {
         BiConsumer<Integer, Integer> handler = windowResizedHandler;
         if (handler != null) handler.accept(cols, rows);
+    }
+
+    /** Creates a void(*)(const char*) upcall stub that calls handler with the current field text. */
+    public static MemorySegment createTextChangedCallback(Arena arena, Consumer<String> handler) {
+        textChangedHandler = handler;
+        try {
+            MethodHandle mh = MethodHandles.lookup()
+                    .findStatic(Callbacks.class, "onTextChanged",
+                            MethodType.methodType(void.class, MemorySegment.class));
+            return Linker.nativeLinker().upcallStub(mh, VOID_PTR, arena);
+        } catch (NoSuchMethodException | IllegalAccessException e) {
+            throw new RuntimeException("Failed to create text-changed upcall stub", e);
+        }
+    }
+
+    /** Creates a void(*)(const char*) upcall stub that calls handler with the pressed key chars. */
+    public static MemorySegment createKeyPressedCallback(Arena arena, Consumer<String> handler) {
+        keyPressedHandler = handler;
+        try {
+            MethodHandle mh = MethodHandles.lookup()
+                    .findStatic(Callbacks.class, "onKeyPressed",
+                            MethodType.methodType(void.class, MemorySegment.class));
+            return Linker.nativeLinker().upcallStub(mh, VOID_PTR, arena);
+        } catch (NoSuchMethodException | IllegalAccessException e) {
+            throw new RuntimeException("Failed to create key-pressed upcall stub", e);
+        }
+    }
+
+    /** Called from Objective-C when NSTextField content changes. Registered in reachability-metadata.json. */
+    public static void onTextChanged(MemorySegment textPtr) {
+        Consumer<String> handler = textChangedHandler;
+        if (handler != null && textPtr != null && !MemorySegment.NULL.equals(textPtr)) {
+            String text = textPtr.reinterpret(Long.MAX_VALUE).getString(0);
+            handler.accept(text);
+        }
+    }
+
+    /** Called from Objective-C for each key intercepted in slash mode. Registered in reachability-metadata.json. */
+    public static void onKeyPressed(MemorySegment charsPtr) {
+        Consumer<String> handler = keyPressedHandler;
+        if (handler != null && charsPtr != null && !MemorySegment.NULL.equals(charsPtr)) {
+            String chars = charsPtr.reinterpret(Long.MAX_VALUE).getString(0);
+            handler.accept(chars);
+        }
     }
 
     private Callbacks() {}
