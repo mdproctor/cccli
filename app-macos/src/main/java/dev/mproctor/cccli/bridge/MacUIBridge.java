@@ -155,6 +155,7 @@ public class MacUIBridge {
      * Register a callback invoked whenever xterm.js reports a terminal resize.
      * The callback receives (cols, rows) — note cols first, rows second.
      * Call before bridge.start() so the initial fit is captured.
+     * Thread-safe — the ObjC bridge stores the C function pointer statically.
      */
     public void setResizeCallback(BiConsumer<Integer, Integer> onResized) {
         MemorySegment cb = Callbacks.createWindowResizedCallback(arena, onResized);
