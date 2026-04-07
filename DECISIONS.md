@@ -362,3 +362,82 @@ Quarkus image. App launched in bundle mode, WebContent XPC process spawned (conf
 `com.apple.security.cs.allow-jit` to an entitlements plist and pass it to `codesign`
 via `--entitlements`. Without this flag, WebKit's JIT compiler is blocked under hardened
 runtime and xterm.js will run in interpreter mode or fail entirely.
+
+---
+
+## ADR-017: Panama FFM firstVariadicArg required for variadic ioctl downcalls
+
+**Date:** 2026-04-07
+**Status:** Decided
+
+### Context
+
+`ioctl(int fd, unsigned long request, ...)` is a variadic C function. Panama FFM
+requires `Linker.Option.firstVariadicArg(N)` to be passed when building a
+`MethodHandle` for any variadic function, where N is the 0-based index of the
+first variadic argument.
+
+### Problem
+
+The initial `ioctl` downcall was built without `firstVariadicArg(2)`. On AArch64
+the call appeared to succeed (return value 0) but `TIOCSWINSZ` silently operated
+on a garbage address — the `winsize` struct was never written to the kernel.
+This caused the PTY to remain at its initial dimensions regardless of window
+resize events. The bug was masked because xterm.js rendered correctly at any
+size; only tput integration tests that read back `TIOCGWINSZ` revealed the failure.
+
+### Decision
+
+All Panama FFM downcalls to variadic C functions must include
+`Linker.Option.firstVariadicArg(N)` in the `Linker.nativeLinker().downcallHandle()`
+call. For `ioctl`, N = 2 (fd=0, request=1, variadic arg starts at 2).
+
+Without this option, the ABI calling convention for the variadic argument registers
+is wrong under the AArch64 AAPCS64 ABI, producing silent data corruption with no
+error return.
+
+### Rule
+
+Before calling any libc function: check its declaration. If it is variadic (`...`),
+`firstVariadicArg` is mandatory, not optional.
+
+---
+
+## ADR-018: Terminal resize pipeline — xterm.js FitAddon → WKScriptMessageHandler → pty.resize
+
+**Date:** 2026-04-07
+**Status:** Decided
+
+### Context
+
+When the user resizes the macOS window, the PTY must be notified of the new terminal
+dimensions via `ioctl(TIOCSWINSZ)`. The terminal grid size (rows × cols) depends on
+the rendered font metrics inside xterm.js — it cannot be accurately derived from
+pixel dimensions alone without access to those same font metrics.
+
+### Options Considered
+
+| Option | Verdict | Reason |
+|--------|---------|--------|
+| Compute rows/cols in Java from pixel size | Rejected | Requires knowing xterm.js font size/padding; these are set in JS and can change |
+| Compute in Objective-C | Rejected | Same problem — font metrics live in JS |
+| Let xterm.js FitAddon compute | **Chosen** | FitAddon is purpose-built for this; it is the authoritative source |
+
+### Decision
+
+The resize pipeline is:
+
+1. `windowDidResize:` (ObjC) → `evaluateJavaScript("requestAnimationFrame(() => fitAddon.fit())")`
+2. FitAddon reflows the terminal grid and fires `term.onResize({rows, cols})`
+3. `term.onResize` handler calls `window.webkit.messageHandlers.termSize.postMessage({rows, cols})`
+4. `WKScriptMessageHandler "termSize"` fires in Java → `WindowResizedCallback.onResize(rows, cols)`
+5. `PtyManager.resize(rows, cols)` calls `ioctl(masterFd, TIOCSWINSZ, winsize)`
+
+`requestAnimationFrame` is used (not direct `fitAddon.fit()`) to ensure the
+WKWebView layout pass has completed before FitAddon measures the container size.
+
+### WindowResizedCallback
+
+A `@FunctionalInterface` registered via `myui_set_resize_callback()`. This keeps
+`PtyManager` decoupled from the WKWebView/bridge layer — the callback is the only
+coupling point.
