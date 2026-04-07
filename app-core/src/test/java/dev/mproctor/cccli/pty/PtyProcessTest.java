@@ -141,12 +141,9 @@ class PtyProcessTest {
     @Test
     void resizeIoctlSucceeds() {
         // resize() calls ioctl(TIOCSWINSZ) on the master fd.
-        // Verify the ioctl succeeds (returns 0) and doesn't throw.
-        // Note: on macOS, TIOCGWINSZ read-back after TIOCSWINSZ returns 0 for
-        // disconnected PTYs — this is a macOS PTY behaviour not a code bug.
-        // The resize is used in production with an active subprocess which changes
-        // the behaviour. See PosixLibraryTest.tcgetattrAndTcsetattrWork for a test
-        // that verifies the full termios ioctl round-trip works correctly.
+        // The IOCTL handle uses Linker.Option.firstVariadicArg(2) to pass the ADDRESS
+        // argument correctly on macOS AArch64 JVM — without it the ioctl operates on
+        // a garbage address. End-to-end correctness is verified by the tput tests below.
         pty.open();
         pty.spawn(new String[]{"/bin/cat"}); // active subprocess
         assertDoesNotThrow(() -> pty.resize(24, 80));
@@ -155,15 +152,14 @@ class PtyProcessTest {
 
     @Test
     void ioctlGetWinsizeReturnsNonNullWithActiveSubprocess() {
-        // ioctlGetWinsize() wraps TIOCGWINSZ via Panama FFM. Panama FFM has a known
-        // limitation on macOS AArch64 JVM: IOC_OUT direction ioctls do not populate
-        // the output buffer correctly (returns 0 but leaves buffer unchanged). This
-        // is a JVM-mode-only limitation — the method works correctly in GraalVM native
-        // image where Panama calls compile to real native stubs with correct ABI.
+        // ioctlGetWinsize() wraps TIOCGWINSZ via Panama FFM.
+        // The IOCTL handle uses Linker.Option.firstVariadicArg(2) so that the ADDRESS
+        // argument is passed correctly on macOS AArch64 in JVM mode. Without this option,
+        // Panama passed the wrong address to ioctl, causing both TIOCSWINSZ and TIOCGWINSZ
+        // to operate on garbage memory.
         //
-        // In JVM tests we verify: (a) the method exists and is callable, (b) it does
-        // not throw, (c) it returns non-null (ioctl returns 0 even in JVM mode).
-        // Exact dimension verification is done by the tput integration tests below.
+        // This test verifies the method is callable and returns non-null.
+        // End-to-end correctness (rows/cols values) is verified by the tput tests below.
         pty.open();
         pty.spawn(new String[]{"/bin/cat"});
         pty.resize(42, 137);
@@ -176,8 +172,7 @@ class PtyProcessTest {
     @Test
     void ioctlGetWinsizeIsStableAfterMultipleResizes() {
         // Verifies ioctlGetWinsize() remains non-null and well-formed across multiple
-        // resize() calls. Exact dimension read-back deferred to tput tests (see
-        // ioctlGetWinsizeReturnsNonNullWithActiveSubprocess for the Panama JVM note).
+        // resize() calls. Exact dimension read-back is verified by the tput tests below.
         pty.open();
         pty.spawn(new String[]{"/bin/cat"});
         pty.resize(24, 80);
@@ -192,6 +187,67 @@ class PtyProcessTest {
     void resizeBeforeOpenIsNoOp() {
         assertDoesNotThrow(() -> pty.resize(24, 80),
                 "resize() before open() should be a safe no-op — guards on masterFd < 0");
+    }
+
+    @Test
+    void tputColsReflectsResizeDimensions() throws Exception {
+        pty.open();
+        pty.resize(24, 100);
+
+        CompletableFuture<String> received = new CompletableFuture<>();
+        StringBuilder output = new StringBuilder();
+        pty.startReader(text -> {
+            output.append(text);
+            if (!received.isDone()) received.complete(output.toString());
+        });
+        // tput reads TIOCGWINSZ from its controlling terminal (the PTY slave).
+        // TERM must be set so tput knows which terminal database to use;
+        // without -T, it reads dimensions from TIOCGWINSZ rather than the terminfo database.
+        pty.spawn(new String[]{"/usr/bin/tput", "cols"},
+                new String[]{"TERM=xterm-256color"});
+
+        String result = received.get(3, TimeUnit.SECONDS);
+        assertTrue(result.trim().contains("100"),
+                "tput cols should report 100, got: " + result);
+    }
+
+    @Test
+    void tputLinesReflectsResizeDimensions() throws Exception {
+        pty.open();
+        pty.resize(30, 80);
+
+        CompletableFuture<String> received = new CompletableFuture<>();
+        StringBuilder output = new StringBuilder();
+        pty.startReader(text -> {
+            output.append(text);
+            if (!received.isDone()) received.complete(output.toString());
+        });
+        pty.spawn(new String[]{"/usr/bin/tput", "lines"},
+                new String[]{"TERM=xterm-256color"});
+
+        String result = received.get(3, TimeUnit.SECONDS);
+        assertTrue(result.trim().contains("30"),
+                "tput lines should report 30, got: " + result);
+    }
+
+    @Test
+    void tputColsAfterMultipleResizes() throws Exception {
+        pty.open();
+        pty.resize(24, 80);
+        pty.resize(50, 200);
+
+        CompletableFuture<String> received = new CompletableFuture<>();
+        StringBuilder output = new StringBuilder();
+        pty.startReader(text -> {
+            output.append(text);
+            if (!received.isDone()) received.complete(output.toString());
+        });
+        pty.spawn(new String[]{"/usr/bin/tput", "cols"},
+                new String[]{"TERM=xterm-256color"});
+
+        String result = received.get(3, TimeUnit.SECONDS);
+        assertTrue(result.trim().contains("200"),
+                "tput cols should report last resize value 200, got: " + result);
     }
 
     // ── sendSigInt() ──────────────────────────────────────────────────────────

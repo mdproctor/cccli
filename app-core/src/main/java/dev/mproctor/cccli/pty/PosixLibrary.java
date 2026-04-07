@@ -119,12 +119,17 @@ public final class PosixLibrary {
 
     /**
      * int ioctl(int fd, unsigned long request, void* arg)
-     * Non-variadic descriptor — safe for the TIOCSWINSZ call we always make.
+     * ioctl is variadic; the pointer arg is at index 2 (0-based).
+     * Linker.Option.firstVariadicArg(2) is required on macOS AArch64 JVM to
+     * ensure the ADDRESS argument is passed correctly to the kernel.
+     * Without it, Panama FFM passes the wrong address, causing the ioctl to
+     * operate on garbage memory (TIOCSWINSZ sets wrong winsize values).
      */
     private static final MethodHandle IOCTL = LINKER.downcallHandle(
             LIBC.find("ioctl").orElseThrow(),
             FunctionDescriptor.of(ValueLayout.JAVA_INT,
-                    ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
+                    ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS),
+            Linker.Option.firstVariadicArg(2));
 
     /** int posix_spawn_file_actions_init(posix_spawn_file_actions_t* file_actions) */
     private static final MethodHandle SPAWN_ACTIONS_INIT = LINKER.downcallHandle(

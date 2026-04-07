@@ -103,6 +103,18 @@ public class PtyProcess {
      * @param command  e.g. new String[]{"/bin/cat"} or new String[]{"/bin/echo", "hello"}
      */
     public void spawn(String[] command) {
+        spawn(command, null);
+    }
+
+    /**
+     * Spawns a subprocess with its stdin/stdout/stderr wired to the PTY slave,
+     * using an explicit environment. open() must have been called first.
+     *
+     * @param command  e.g. new String[]{"/bin/cat"} or new String[]{"/usr/bin/tput", "cols"}
+     * @param env      null to inherit the parent process environment, or an array of
+     *                 "KEY=VALUE" strings to pass as the subprocess environment
+     */
+    public void spawn(String[] command, String[] env) {
         if (masterFd < 0) throw new IllegalStateException("call open() first");
 
         try (Arena temp = Arena.ofConfined()) {
@@ -114,6 +126,19 @@ public class PtyProcess {
                 argv.setAtIndex(ValueLayout.ADDRESS, i, argStr);
             }
             argv.setAtIndex(ValueLayout.ADDRESS, command.length, MemorySegment.NULL);
+
+            // Build null-terminated envp array, or NULL to inherit parent environment
+            MemorySegment envp;
+            if (env == null) {
+                envp = MemorySegment.NULL;
+            } else {
+                envp = temp.allocate(ValueLayout.ADDRESS.byteSize() * (env.length + 1));
+                for (int i = 0; i < env.length; i++) {
+                    MemorySegment envStr = temp.allocateFrom(env[i]);
+                    envp.setAtIndex(ValueLayout.ADDRESS, i, envStr);
+                }
+                envp.setAtIndex(ValueLayout.ADDRESS, env.length, MemorySegment.NULL);
+            }
 
             // Set up file actions: dup2 slave to 0/1/2, then close slave in child
             MemorySegment fileActions = temp.allocate(FILE_ACTIONS_SIZE);
@@ -127,8 +152,7 @@ public class PtyProcess {
             MemorySegment pidSeg  = temp.allocate(ValueLayout.JAVA_INT);
             MemorySegment pathSeg = temp.allocateFrom(command[0]);
 
-            int ret = PosixLibrary.posixSpawn(pidSeg, pathSeg, fileActions, argv,
-                    MemorySegment.NULL);
+            int ret = PosixLibrary.posixSpawn(pidSeg, pathSeg, fileActions, argv, envp);
             PosixLibrary.spawnFileActionsDestroy(fileActions);
             if (ret != 0) throw new RuntimeException("posix_spawn failed with errno: " + ret);
 
