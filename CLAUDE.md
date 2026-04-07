@@ -35,10 +35,13 @@ Bundle output: `app-macos/target/Claude Desktop CLI.app`
 ## Test
 
 ```bash
+jenv shell 26
 mvn test
 ```
 
 **Required:** `surefire reuseForks=false` in `app-core/pom.xml` — Panama FFM PTY I/O corrupts JVM state between test classes on macOS AArch64 (SIGTRAP exit 133 symptom).
+
+Note: Requires JDK 26 active via jenv. Native builds still require GraalVM 25 (`jenv shell graalvm64-25`).
 
 ## Work Tracking
 
