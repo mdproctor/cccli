@@ -20,17 +20,18 @@ static NSButton       *theStopButton;
 /* Declared before @implementation so evaluateJS: and webView:didFinishNavigation:
  * can reference them without forward-declaring each variable separately.     */
 
-static CCCAppDelegate  *appDelegate        = nil;
-static NSTextView      *theOutputView      = nil;  /* dev mode (JVM, NSTextView) */
-static WKWebView       *theWebView         = nil;  /* prod mode (.app bundle)    */
-static BOOL             pageReady          = NO;
-static NSMutableArray  *pendingOutput      = nil;  /* buffered before page ready */
-static NSString        *pendingInitialText = nil;  /* initial text for xterm.js  */
+static CCCAppDelegate        *appDelegate        = nil;
+static NSTextView            *theOutputView      = nil;  /* dev mode (JVM, NSTextView) */
+static WKWebView             *theWebView         = nil;  /* prod mode (.app bundle)    */
+static BOOL                   pageReady          = NO;
+static NSMutableArray        *pendingOutput      = nil;  /* buffered before page ready */
+static NSString              *pendingInitialText = nil;  /* initial text for xterm.js  */
+static WindowResizedCallback  resizedCallback    = NULL; /* registered via myui_set_resize_callback */
 
 /* ── AppDelegate ─────────────────────────────────────────────────────────── */
 
 @interface CCCAppDelegate : NSObject
-    <NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate>
+    <NSApplicationDelegate, NSWindowDelegate, WKNavigationDelegate, WKScriptMessageHandler>
 @property (nonatomic, assign) WindowClosedCallback   onClosed;
 @property (nonatomic, assign) TextSubmittedCallback  onTextSubmitted;
 @property (nonatomic, assign) StopClickedCallback    onStop;
@@ -88,6 +89,28 @@ static NSString        *pendingInitialText = nil;  /* initial text for xterm.js 
     }
 }
 
+- (void)windowDidResize:(NSNotification *)notification {
+    /* Already on AppKit main thread. Guard: only when WKWebView is ready.
+     * requestAnimationFrame defers fit() until after WebView reflows,
+     * avoiding a stale offsetWidth/Height read. */
+    if (pageReady && theWebView) {
+        [theWebView evaluateJavaScript:@"requestAnimationFrame(()=>window.fitAddon.fit())"
+                     completionHandler:nil];
+    }
+}
+
+/* WKScriptMessageHandler — receives {cols, rows} from term.onResize in JS */
+- (void)userContentController:(WKUserContentController *)userContentController
+      didReceiveScriptMessage:(WKScriptMessage *)message {
+    if ([message.name isEqualToString:@"termSize"]) {
+        NSDictionary *body = message.body;
+        int cols = [body[@"cols"] intValue];
+        int rows = [body[@"rows"] intValue];
+        WindowResizedCallback cb = resizedCallback;
+        if (cb) cb(cols, rows);
+    }
+}
+
 - (void)textFieldSubmit:(NSTextField *)sender {
     NSString *text = [sender.stringValue
                       stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
@@ -113,6 +136,8 @@ static NSString        *pendingInitialText = nil;  /* initial text for xterm.js 
         doWebViewWrite(str);
     }
     pendingOutput = nil;
+    /* Initial fit — sets PTY size to match actual window via term.onResize → WindowResizedCallback */
+    [theWebView evaluateJavaScript:@"window.fitAddon.fit()" completionHandler:nil];
 }
 
 @end
@@ -169,8 +194,12 @@ static void setupUI(NSWindow *window,
 
     if (myui_is_bundle()) {
         /* Production: WKWebView + xterm.js */
+        WKUserContentController *controller = [[WKUserContentController alloc] init];
+        [controller addScriptMessageHandler:appDelegate name:@"termSize"];
+
         WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
         config.websiteDataStore = [WKWebsiteDataStore nonPersistentDataStore];
+        config.userContentController = controller;
 
         WKWebView *webView = [[WKWebView alloc] initWithFrame:outputRect
                                                 configuration:config];
@@ -350,6 +379,10 @@ void myui_evaluate_javascript(const char *script) {
                                      withObject:js
                                   waitUntilDone:NO];
     }
+}
+
+void myui_set_resize_callback(WindowResizedCallback cb) {
+    resizedCallback = cb;
 }
 
 intptr_t myui_start(const char *title,

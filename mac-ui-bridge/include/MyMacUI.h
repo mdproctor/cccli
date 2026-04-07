@@ -18,6 +18,14 @@ typedef void (*TextSubmittedCallback)(const char* text);
 /** Fired on the AppKit main thread when the user clicks the Stop button. */
 typedef void (*StopClickedCallback)(void);
 
+/** Fired when the terminal grid dimensions change (window resize or initial fit).
+ *  cols and rows are the new character grid dimensions. */
+typedef void (*WindowResizedCallback)(int cols, int rows);
+
+/** Register the callback invoked when xterm.js posts a termSize message via WKScriptMessageHandler.
+ *  Thread-safe. Call before myui_start(). NULL to unregister. */
+void myui_set_resize_callback(WindowResizedCallback cb);
+
 /** Initialize NSApplication. Must be called first, on the main thread. */
 void myui_init_application(void);
 
