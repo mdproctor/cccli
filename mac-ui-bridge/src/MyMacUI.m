@@ -339,6 +339,11 @@ static void setupUI(NSWindow *window,
                                           handler:^NSEvent*(NSEvent *event) {
         if (!slashModeActive) return event;
 
+        /* Pass Cmd/Option/Ctrl shortcuts through — only intercept plain keys and Shift. */
+        NSEventModifierFlags mods = event.modifierFlags &
+            (NSEventModifierFlagCommand | NSEventModifierFlagOption | NSEventModifierFlagControl);
+        if (mods) return event;
+
         NSString *chars = event.characters;
         if (!chars || chars.length == 0) return event;
 
@@ -413,6 +418,9 @@ void myui_set_passive_mode(int passive) {
                               waitUntilDone:NO];
 }
 
+/* isMainThread fast-path: called from controlTextDidChange: upcall (main thread), so we set
+ * slashModeActive synchronously before returning — same pattern as myui_append_output.
+ * (APPKIT_PITFALLS.md §5) */
 void myui_set_slash_mode(int active) {
     if ([NSThread isMainThread]) {
         slashModeActive = (BOOL)active;
