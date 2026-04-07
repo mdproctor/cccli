@@ -154,7 +154,7 @@ class PtyProcessTest {
     }
 
     @Test
-    void tiocgwinszReadsBackAfterResize() {
+    void ioctlGetWinsizeReturnsNonNullWithActiveSubprocess() {
         // ioctlGetWinsize() wraps TIOCGWINSZ via Panama FFM. Panama FFM has a known
         // limitation on macOS AArch64 JVM: IOC_OUT direction ioctls do not populate
         // the output buffer correctly (returns 0 but leaves buffer unchanged). This
@@ -163,7 +163,7 @@ class PtyProcessTest {
         //
         // In JVM tests we verify: (a) the method exists and is callable, (b) it does
         // not throw, (c) it returns non-null (ioctl returns 0 even in JVM mode).
-        // Exact dimension verification is done by Task 3 tput integration tests.
+        // Exact dimension verification is done by the tput integration tests below.
         pty.open();
         pty.spawn(new String[]{"/bin/cat"});
         pty.resize(42, 137);
@@ -174,10 +174,10 @@ class PtyProcessTest {
     }
 
     @Test
-    void resizeCanBeCalledMultipleTimes() {
-        // Verifies multiple resize() calls don't throw and ioctlGetWinsize() is stable.
-        // Exact dimension read-back is deferred to native-image / tput integration tests
-        // (see tiocgwinszReadsBackAfterResize above for the Panama JVM limitation note).
+    void ioctlGetWinsizeIsStableAfterMultipleResizes() {
+        // Verifies ioctlGetWinsize() remains non-null and well-formed across multiple
+        // resize() calls. Exact dimension read-back deferred to tput tests (see
+        // ioctlGetWinsizeReturnsNonNullWithActiveSubprocess for the Panama JVM note).
         pty.open();
         pty.spawn(new String[]{"/bin/cat"});
         pty.resize(24, 80);
@@ -185,7 +185,7 @@ class PtyProcessTest {
 
         int[] dims = PosixLibrary.ioctlGetWinsize(pty.getMasterFd());
         assertNotNull(dims, "ioctlGetWinsize() must not return null after multiple resizes");
-        assertEquals(2, dims.length);
+        assertEquals(2, dims.length, "result must be int[]{rows, cols}");
     }
 
     @Test
