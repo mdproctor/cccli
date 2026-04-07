@@ -12,6 +12,7 @@
 <body>
   <div id="terminal"></div>
   <script src="xterm.js"></script>
+  <script src="xterm-addon-fit.js"></script>
   <script>
     window.term = new Terminal({
       theme: {
@@ -32,8 +33,15 @@
       cursorBlink: true,
       scrollback: 5000
     });
+    window.fitAddon = new FitAddon.FitAddon();
+    window.term.loadAddon(window.fitAddon);
     window.term.open(document.getElementById('terminal'));
-    window.term.resize(120, 24);
+    window.term.onResize(function(evt) {
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.termSize) {
+        window.webkit.messageHandlers.termSize.postMessage({ cols: evt.cols, rows: evt.rows });
+      }
+    });
+    window.fitAddon.fit();
   </script>
 </body>
 </html>
