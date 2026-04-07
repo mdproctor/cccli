@@ -8,6 +8,7 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -26,10 +27,13 @@ public final class Callbacks {
             FunctionDescriptor.ofVoid();
     private static final FunctionDescriptor VOID_PTR =
             FunctionDescriptor.ofVoid(ValueLayout.ADDRESS);
+    private static final FunctionDescriptor VOID_INT_INT =
+            FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT);
 
-    private static volatile Runnable         windowClosedHandler;
-    private static volatile Consumer<String> textSubmittedHandler;
-    private static volatile Runnable         stopClickedHandler;
+    private static volatile Runnable                     windowClosedHandler;
+    private static volatile Consumer<String>             textSubmittedHandler;
+    private static volatile Runnable                     stopClickedHandler;
+    private static volatile BiConsumer<Integer, Integer> windowResizedHandler;
 
     /** Creates a void(*)(void) upcall stub that calls handler when the window closes. */
     public static MemorySegment createWindowClosedCallback(Arena arena, Runnable handler) {
@@ -95,6 +99,26 @@ public final class Callbacks {
     public static void onStopClicked() {
         Runnable handler = stopClickedHandler;
         if (handler != null) handler.run();
+    }
+
+    /** Creates a void(*)(int cols, int rows) upcall stub for terminal resize notifications. */
+    public static MemorySegment createWindowResizedCallback(Arena arena,
+                                                             BiConsumer<Integer, Integer> handler) {
+        windowResizedHandler = handler;
+        try {
+            MethodHandle mh = MethodHandles.lookup()
+                    .findStatic(Callbacks.class, "onTerminalResized",
+                            MethodType.methodType(void.class, int.class, int.class));
+            return Linker.nativeLinker().upcallStub(mh, VOID_INT_INT, arena);
+        } catch (NoSuchMethodException | IllegalAccessException e) {
+            throw new RuntimeException("Failed to create window-resized upcall stub", e);
+        }
+    }
+
+    /** Called from Objective-C when xterm.js reports a new terminal size. Registered in reflect-config.json. */
+    public static void onTerminalResized(int cols, int rows) {
+        BiConsumer<Integer, Integer> handler = windowResizedHandler;
+        if (handler != null) handler.accept(cols, rows);
     }
 
     private Callbacks() {}

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.function.BiConsumer;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.*;
 
@@ -113,6 +114,21 @@ class MacUIBridgeTest {
     }
 
     // ── Tier 4: native binding ────────────────────────────────────────────────
+
+    // ── setResizeCallback ──────────────────────────────────────────────────────────
+
+    @Test
+    void setResizeCallback_smokesWithDylib() {
+        Path dylib = Path.of("../mac-ui-bridge/build/libMyMacUI.dylib").toAbsolutePath();
+        assumeTrue(Files.exists(dylib), "dylib not built — skipping native binding test");
+        System.load(dylib.toString());
+
+        // Registering a no-op handler must not throw.
+        // Verifies: Panama binding resolves myui_set_resize_callback symbol,
+        //           upcall stub is allocated and passed to the dylib without error.
+        assertDoesNotThrow(() -> bridge.setResizeCallback((cols, rows) -> { /* no-op */ }),
+                "setResizeCallback() should not throw when dylib is loaded");
+    }
 
     @Test
     void isInBundle_returnsFalse_inJvmTestMode() {

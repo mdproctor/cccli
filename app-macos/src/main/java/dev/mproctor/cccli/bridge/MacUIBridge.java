@@ -10,6 +10,7 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -148,6 +149,16 @@ public class MacUIBridge {
             MemorySegment scriptSeg = temp.allocateFrom(script != null ? script : "");
             MyMacUI_h.myui_evaluate_javascript(scriptSeg);
         }
+    }
+
+    /**
+     * Register a callback invoked whenever xterm.js reports a terminal resize.
+     * The callback receives (cols, rows) — note cols first, rows second.
+     * Call before bridge.start() so the initial fit is captured.
+     */
+    public void setResizeCallback(BiConsumer<Integer, Integer> onResized) {
+        MemorySegment cb = Callbacks.createWindowResizedCallback(arena, onResized);
+        MyMacUI_h.myui_set_resize_callback(cb);
     }
 
     /** Terminate the application cleanly. */

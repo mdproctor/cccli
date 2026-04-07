@@ -18,6 +18,12 @@
         "method": "onStopClicked",
         "returnType": "void",
         "parameterTypes": []
+      },
+      {
+        "class": "dev.mproctor.cccli.bridge.Callbacks",
+        "method": "onTerminalResized",
+        "returnType": "void",
+        "parameterTypes": ["jint", "jint"]
       }
     ],
     "downcalls": [
