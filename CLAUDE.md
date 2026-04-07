@@ -15,7 +15,7 @@ A native macOS app wrapping Claude Code in a proper terminal emulator. Built wit
 
 Key docs:
 - `DESIGN.md` — current architecture
-- `DECISIONS.md` — ADR-001 to ADR-016
+- `DECISIONS.md` — ADR-001 to ADR-018
 - `docs/APPKIT_PITFALLS.md` — **read before any Obj-C/AppKit debugging**
 - `docs/HANDOFF.md` — session handover (state, next steps, pitfalls)
 
@@ -26,8 +26,10 @@ Key docs:
 mvn install
 
 # Native image + .app bundle (requires GraalVM — not just any Java 22)
+# Must skip tests: PtyProcessTest crashes with GraalVM 25 (exit 133 / SIGTRAP).
+# Run tests separately first with JDK 26: jenv shell 26 && mvn test
 JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home \
-  mvn install -Pnative
+  mvn install -Pnative -DskipTests
 ```
 
 Bundle output: `app-macos/target/Claude Desktop CLI.app`
