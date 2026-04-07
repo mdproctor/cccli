@@ -1,5 +1,6 @@
 package dev.mproctor.cccli;
 
+import dev.mproctor.cccli.InputRouter;
 import dev.mproctor.cccli.bridge.MacUIBridge;
 import dev.mproctor.cccli.pty.PtyProcess;
 import io.quarkus.logging.Log;
@@ -58,6 +59,11 @@ public class Main implements QuarkusApplication {
             bridge.appendOutput(text);
         });
 
+        InputRouter inputRouter = new InputRouter(
+                pty::write,
+                bridge::setSlashMode,
+                bridge::setInputText);
+
         Log.info("Starting Claude Desktop CLI...");
         bridge.start("Claude Desktop CLI", 900, 600,
                 "Connecting to Claude...\n",
@@ -81,7 +87,9 @@ public class Main implements QuarkusApplication {
                     Log.info("Stop clicked — sending SIGINT");
                     pty.sendSigInt();
                     detector.forceIdle();
-                });
+                },
+                inputRouter::onTextChanged,   // NEW — fires on each NSTextField change
+                inputRouter::onKeyPressed);   // NEW — fires on each key in slash mode
 
         Log.info("Application terminated");
         return 0;
