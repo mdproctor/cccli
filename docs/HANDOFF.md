@@ -1,44 +1,40 @@
-# Handover — 2026-04-07 (session 2)
+# Handover — 2026-04-07 (session 3)
 
-**Head commit:** `198323c` — docs: add blog entry 2026-04-07-02-terminal-resize-ioctl-bug
+**Head commit:** `679138e` — docs: add blog entry 2026-04-07-mdp01-slash-commands-without-overlay
 **Previous handover:** `git show HEAD~1:docs/HANDOFF.md`
 
 ## What Changed This Session
 
-- **Terminal resize complete** — FitAddon + WKScriptMessageHandler + TIOCSWINSZ pipeline. `windowDidResize:` → `requestAnimationFrame(fitAddon.fit())` → `term.onResize` → `WKScriptMessageHandler "termSize"` → `WindowResizedCallback` → `pty.resize(rows, cols)`. Hardcoded 120×24 gone.
-- **Critical Panama FFM bug fixed** — `ioctl()` was missing `Linker.Option.firstVariadicArg(2)`. `TIOCSWINSZ` was silently operating on garbage addresses since day one. Found by tput integration tests.
-- **58 tests passing** — 7 new: 3 tput (verify kernel path), 3 TIOCGWINSZ API contract, 1 bridge smoke.
-- **CLAUDE.md updated** — test command now `jenv shell 26 && mvn test` (Java 22 not installed; JDK 26 via jenv is correct).
-- **Garden entries** — GE-0053 (Panama FFM IOC_OUT silent failure), GE-0059 (REVISE: firstVariadicArg fix), GE-0060 (tput TERM env requirement), GE-0061 (tput PTY dimension technique).
-- **GitHub issue #8 closed.**
+- **ADR-017 and ADR-018 written** — firstVariadicArg for variadic ioctl, and the terminal resize pipeline decision. Both in `DECISIONS.md`.
+- **Slash command passthrough shipped** — `#9` closed. Type `/` → NSTextField clears → keystrokes route to PTY → Claude Code's TUI handles display and selection. `InputRouter` state machine in `app-core`, NSEvent monitor in `MyMacUI.m`. 73/73 tests.
+- **Key fix during review:** contradictory backspace tests fixed (needed 3 backspaces not 2 to exhaust buffer); modifier key guard added to NSEvent monitor (Cmd/Option/Ctrl pass through during slash mode).
+- **Native build:** must use `-DskipTests` — PtyProcessTest crashes with GraalVM 25 (exit 133). CLAUDE.md updated.
+- **Garden:** GE-0072 (`performSelectorOnMainThread:NO` from main thread is async), GE-0073 (NSEvent monitor + BOOL flag pattern). Both submitted.
 
 ## State Right Now
 
-Terminal resize shipped. 58/58 tests passing. `jenv shell 26 && mvn test` from root.
+73 tests passing. Slash command passthrough on `main`. No open issues.
 
 ## Immediate Next Step
 
-Decide on and brainstorm the **slash command overlay** — `/` command input over the terminal. Architecture still unclear: transparent NSView overlay vs popup. Needs a brainstorm session before planning.
+Try the **hidden-row experiment**: report `N+1` PTY rows to Claude Code (via the resize callback) so its input line renders below the WKWebView visible area. The NSTextField sits where that hidden row would be — two inputs become one visual surface. One-line change in `Main.java` resize callback: `pty.resize(rows + 1, cols)`. Try it and see if Claude Code reliably renders its prompt on the last row.
 
 ## Open Questions / Blockers
 
-- Slash command overlay — transparent NSView vs popup? Needs brainstorming.
-- `firstVariadicArg(2)` and `WindowResizedCallback` decisions have no ADRs yet.
-- Hardened runtime / notarisation — needs `com.apple.security.cs.allow-jit` if added.
+- Does Claude Code always render its input on the last PTY row? (Must verify before the hidden-row approach is viable.)
+- How many rows does Claude Code use for status info below the input line? (Determines if `+1` is enough or `+2` needed.)
 
 ## Environment
 
-- Tests: `jenv shell 26 && mvn test` (JDK 26 via jenv; Java 22 not installed)
-- Native builds: `JAVA_HOME=/Library/Java/JavaVirtualMachines/graalvm-25.jdk/Contents/Home mvn install -Pnative`
-- `surefire reuseForks=false` required in `app-core/pom.xml`
+*Unchanged — `git show HEAD~1:docs/HANDOFF.md`*
 
 ## References
 
 | Context | Where |
 |---------|-------|
-| Design state | `docs/design-snapshots/2026-04-07-terminal-resize-complete.md` |
-| Architecture decisions | `DECISIONS.md` (ADR-001 to ADR-016) |
-| Current design | `DESIGN.md` |
-| Latest blog | `blog/2026-04-07-02-terminal-resize-ioctl-bug.md` |
-| AppKit pitfalls | `docs/APPKIT_PITFALLS.md` — read before any ObjC debugging |
+| Design state | `docs/design-snapshots/2026-04-07-slash-command-passthrough.md` |
+| Previous design state | `docs/design-snapshots/2026-04-07-terminal-resize-complete.md` |
+| Architecture decisions | `DECISIONS.md` (ADR-001 to ADR-018) |
+| Latest blog | `docs/blog/2026-04-07-mdp01-slash-commands-without-overlay.md` |
+| AppKit pitfalls | `docs/APPKIT_PITFALLS.md` |
 | GitHub issues | mdproctor/cccli |
