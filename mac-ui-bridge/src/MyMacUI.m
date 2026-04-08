@@ -369,10 +369,11 @@ static void setupUI(NSWindow *window,
 /* ── C ABI implementation ─────────────────────────────────────────────────── */
 
 int myui_is_bundle(void) {
-    NSString *path = [[NSBundle mainBundle] pathForResource:@"index"
-                                                     ofType:@"html"
-                                                inDirectory:@"xterm"];
-    return (path != nil) ? 1 : 0;
+    /* WKWebView content process fails to launch on macOS 26+ (Tahoe) beta —
+     * XPC bootstrap path in LaunchServices crashes. Force NSTextView until
+     * WKWebView is fixed with proper entitlements/signing for Tahoe.
+     * TODO: restore resource-based detection once WKWebView works on Tahoe. */
+    return 0;
 }
 
 void myui_init_application(void) {

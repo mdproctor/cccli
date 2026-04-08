@@ -36,33 +36,33 @@ public class Main implements QuarkusApplication {
 
         PtyProcess pty = new PtyProcess();
         pty.open();
-        pty.spawn(new String[]{claudePath.toString()});
+        // Do NOT spawn yet — claude must start only after xterm.js is ready,
+        // otherwise its entire startup output is written before the WKWebView
+        // page has loaded and every byte is silently dropped.
 
-        // Resize callback: fired by WKScriptMessageHandler when xterm.js reports a new grid size.
-        // Note: FitAddon reports (cols, rows), but pty.resize takes (rows, cols).
-        bridge.setResizeCallback((cols, rows) -> {
-            Log.debugf("Terminal resized: %d cols × %d rows", cols, rows);
-            pty.resize(rows, cols);
-        });
-
-        // Detector: bridge.setPassiveMode() is called from the detector's
-        // scheduler thread — safe because myui_set_passive_mode() dispatches
-        // to the AppKit main thread via performSelectorOnMainThread:.
         InteractionDetector detector = new InteractionDetector(
                 state -> bridge.setPassiveMode(state == ClaudeState.PASSIVE));
-
-        pty.startReader(text -> {
-            detector.onOutput();
-            // Raw bytes — no ANSI stripping. In WKWebView mode (bundle), xterm.js handles
-            // ANSI natively. In NSTextView dev mode, escape codes appear as literal chars
-            // which is acceptable (dev mode is transient, WKWebView is production).
-            bridge.appendOutput(text);
-        });
 
         InputRouter inputRouter = new InputRouter(
                 pty::write,
                 bridge::setSlashMode,
                 bridge::setInputText);
+
+        // Spawn claude immediately. In WKWebView mode the Obj-C bridge buffers output
+        // in pendingOutput until didFinishNavigation fires, so nothing is lost.
+        // In NSTextView mode output goes straight through.
+        pty.spawn(new String[]{claudePath.toString()});
+        pty.startReader(text -> {
+            detector.onOutput();
+            bridge.appendOutput(text);
+        });
+
+        // Resize callback: FitAddon fires this once xterm.js is ready (WKWebView mode).
+        // In NSTextView mode this never fires — PTY keeps its default size.
+        bridge.setResizeCallback((cols, rows) -> {
+            Log.debugf("Terminal resized: %d×%d", cols, rows);
+            pty.resize(rows, cols);
+        });
 
         Log.info("Starting Claude Desktop CLI...");
         bridge.start("Claude Desktop CLI", 900, 600,
