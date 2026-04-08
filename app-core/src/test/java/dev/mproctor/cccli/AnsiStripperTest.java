@@ -85,6 +85,16 @@ class AnsiStripperTest {
     }
 
     @Test
+    void stripsDecPrivateMarkerSequences() {
+        // ESC[>0q — DECRQSS with > marker; appeared literally as "[>0q" before fix
+        assertEquals("", AnsiStripper.strip("\u001B[>0q"));
+        // ESC[?2004h — bracketed paste mode
+        assertEquals("", AnsiStripper.strip("\u001B[?2004h"));
+        // ESC[!p — soft terminal reset
+        assertEquals("", AnsiStripper.strip("\u001B[!p"));
+    }
+
+    @Test
     void stripsClaudeTrustPromptReadably() {
         // Reproduce the actual Claude CLI trust-check prompt pattern
         String input = "\u001B[1CAccessing\u001B[1Cworkspace:\u001B[1C/";

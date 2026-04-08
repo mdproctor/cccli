@@ -194,9 +194,16 @@ static void doAppend(NSString *str) {
             doWebViewWrite(str);
         }
     } else if (theOutputView) {
-        /* NSTextView dev path — str has already been ANSI-stripped by Java */
-        NSString *updated = [(theOutputView.string ?: @"") stringByAppendingString:str];
-        [theOutputView setString:updated];
+        /* NSTextView dev path — O(k) append via textStorage.
+         * setString: is O(n) per call → O(n²) total for streaming output.
+         * textStorage appendAttributedString: appends in place — O(k) per call. */
+        NSDictionary *attrs = @{
+            NSFontAttributeName:            theOutputView.font,
+            NSForegroundColorAttributeName: theOutputView.textColor
+        };
+        NSAttributedString *chunk = [[NSAttributedString alloc] initWithString:str
+                                                                    attributes:attrs];
+        [[theOutputView textStorage] appendAttributedString:chunk];
         [theOutputView scrollToEndOfDocument:nil];
     }
 }

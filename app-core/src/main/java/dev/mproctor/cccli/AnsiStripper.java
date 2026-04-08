@@ -36,10 +36,12 @@ public final class AnsiStripper {
      * OSC must be checked before Other since Other also matches ESC.
      */
     private static final Pattern ANSI = Pattern.compile(
-            "\u001B\\][^\u0007]*\u0007"         // OSC: ESC ] text BEL
-            + "|\u001B\\[[0-9;:?]*[A-Za-z]"    // CSI: ESC [ params letter
-            + "|\u001B[A-Za-z0-9=>?]"           // Other: ESC + single VT100 char
-            + "|\r(?!\n)"                        // Bare CR not followed by LF
+            "\u001B\\][^\u0007]*\u0007"              // OSC: ESC ] text BEL
+            + "|\u001B\\[[0-9;:?<>=!]*[A-Za-z]"     // CSI: ESC [ params letter
+                                                     //   params include private markers: ? < > = !
+                                                     //   e.g. ESC[>0q (DECRQSS), ESC[?25l (DECTCEM)
+            + "|\u001B[A-Za-z0-9=>?]"               // Other: ESC + single VT100 char
+            + "|\r(?!\n)"                            // Bare CR not followed by LF
     );
 
     /**
