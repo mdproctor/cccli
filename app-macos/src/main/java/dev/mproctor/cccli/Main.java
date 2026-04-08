@@ -54,7 +54,9 @@ public class Main implements QuarkusApplication {
         pty.spawn(new String[]{claudePath.toString()});
         pty.startReader(text -> {
             detector.onOutput();
-            bridge.appendOutput(text);
+            // Strip ANSI sequences for NSTextView. When WKWebView is restored (#19),
+            // move stripping behind an isInBundle() check — xterm.js handles ANSI natively.
+            bridge.appendOutput(AnsiStripper.strip(text));
         });
 
         // Resize callback: FitAddon fires this once xterm.js is ready (WKWebView mode).
