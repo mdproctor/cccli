@@ -122,16 +122,32 @@ public final class PosixLibrary {
     /**
      * int ioctl(int fd, unsigned long request, void* arg)
      * ioctl is variadic; the pointer arg is at index 2 (0-based).
-     * Linker.Option.firstVariadicArg(2) is required on macOS AArch64 JVM to
-     * ensure the ADDRESS argument is passed correctly to the kernel.
-     * Without it, Panama FFM passes the wrong address, causing the ioctl to
-     * operate on garbage memory (TIOCSWINSZ sets wrong winsize values).
+     *
+     * JVM mode (JDK 26, AArch64): firstVariadicArg(2) is required for correct ABI —
+     * without it Panama FFM passes the wrong address and TIOCSWINSZ corrupts winsize.
+     *
+     * Native image mode: GraalVM compiles downcalls to direct machine code and the
+     * AArch64 ABI is handled correctly without firstVariadicArg. Using firstVariadicArg
+     * in native image produces an unregisterable leaf type that crashes at startup.
+     * The April 2026 pre-firstVariadicArg native build confirmed ioctl works without it.
      */
-    private static final MethodHandle IOCTL = LINKER.downcallHandle(
-            LIBC.find("ioctl").orElseThrow(),
-            FunctionDescriptor.of(ValueLayout.JAVA_INT,
-                    ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS),
-            Linker.Option.firstVariadicArg(2));
+    private static final boolean IN_NATIVE_IMAGE = isNativeImage();
+    private static final MethodHandle IOCTL = IN_NATIVE_IMAGE
+            ? LINKER.downcallHandle(
+                    LIBC.find("ioctl").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.JAVA_INT,
+                            ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS))
+            : LINKER.downcallHandle(
+                    LIBC.find("ioctl").orElseThrow(),
+                    FunctionDescriptor.of(ValueLayout.JAVA_INT,
+                            ValueLayout.JAVA_INT, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS),
+                    Linker.Option.firstVariadicArg(2));
+
+    private static boolean isNativeImage() {
+        // GraalVM sets this property to "buildtime" during image build and "runtime"
+        // when the native image runs. In regular JVM mode it is absent (null).
+        return System.getProperty("org.graalvm.nativeimage.imagecode") != null;
+    }
 
     /** int posix_spawn_file_actions_init(posix_spawn_file_actions_t* file_actions) */
     private static final MethodHandle SPAWN_ACTIONS_INIT = LINKER.downcallHandle(
